@@ -1,4 +1,4 @@
-#include "bmi088_gyro.h"
+#include "Drivers/bmi088_gyro.h"
 
 static inline void BMI088_Gyro_Select(BMI088_GyroHandle_t *handle) {
 	HAL_GPIO_WritePin(handle->csPort, handle->csPin, GPIO_PIN_RESET);
