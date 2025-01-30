@@ -126,6 +126,7 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -172,12 +173,15 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
+
   /* USER CODE END 3 */
 }
 
@@ -462,6 +466,8 @@ void StartLogData(void *argument)
   /* Infinite loop */
   for(;;)
   {
+	  uint8_t toPrint[] = "ts runnin fr"; //Data to send
+	  	  	CDC_Transmit_FS(toPrint, sizeof(toPrint)-1);
     osDelay(1);
   }
   /* USER CODE END StartLogData */
