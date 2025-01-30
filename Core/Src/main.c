@@ -62,13 +62,6 @@ const osThreadAttr_t ReadSensorsTask_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 128 * 4
 };
-/* Definitions for LogDataTask */
-osThreadId_t LogDataTaskHandle;
-const osThreadAttr_t LogDataTask_attributes = {
-  .name = "LogDataTask",
-  .priority = (osPriority_t) osPriorityLow,
-  .stack_size = 128 * 4
-};
 /* Definitions for CANTransmitTest */
 osThreadId_t CANTransmitTestHandle;
 const osThreadAttr_t CANTransmitTest_attributes = {
@@ -100,7 +93,6 @@ static void MX_SPI1_Init(void);
 static void MX_USART2_UART_Init(void);
 void StartFlightLogic(void *argument);
 void StartReadSensors(void *argument);
-void StartLogData(void *argument);
 void StartCANTransmitTest(void *argument);
 void StartCANRecieveTest(void *argument);
 
@@ -147,6 +139,12 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  HAL_StatusTypeDef err = HAL_FDCAN_Start(&hfdcan2);
+  if (err != HAL_OK) {
+	  char buf[60];// to send
+	  int n = sprintf(buf, "init err: = 0x%02x\n", err);
+	  CDC_Transmit_FS(buf, n);
+  }
 
   /* USER CODE END 2 */
 
@@ -175,9 +173,6 @@ int main(void)
 
   /* creation of ReadSensorsTask */
   ReadSensorsTaskHandle = osThreadNew(StartReadSensors, NULL, &ReadSensorsTask_attributes);
-
-  /* creation of LogDataTask */
-  LogDataTaskHandle = osThreadNew(StartLogData, NULL, &LogDataTask_attributes);
 
   /* creation of CANTransmitTest */
   CANTransmitTestHandle = osThreadNew(StartCANTransmitTest, NULL, &CANTransmitTest_attributes);
@@ -480,26 +475,6 @@ void StartReadSensors(void *argument)
   /* USER CODE END StartReadSensors */
 }
 
-/* USER CODE BEGIN Header_StartLogData */
-/**
-* @brief Function implementing the LogDataTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartLogData */
-void StartLogData(void *argument)
-{
-  /* USER CODE BEGIN StartLogData */
-  /* Infinite loop */
-  for(;;)
-  {
-	  uint8_t toPrint[] = "Device online\n"; //Data to send
-	  CDC_Transmit_FS(toPrint, sizeof(toPrint)-1);
-    osDelay(2000);
-  }
-  /* USER CODE END StartLogData */
-}
-
 /* USER CODE BEGIN Header_StartCANTransmitTest */
 /**
 * @brief Function implementing the CANTransmitTest thread.
@@ -526,14 +501,19 @@ void StartCANTransmitTest(void *argument)
 		TxHeader.FDFormat = FDCAN_FD_CAN;
 		TxHeader.TxEventFifoControl = FDCAN_STORE_TX_EVENTS;
 		TxHeader.MessageMarker = 0x52;
-		HAL_StatusTypeDef er = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData0);
-		if (er != HAL_OK)
+		HAL_StatusTypeDef mer = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData0);
+		if (mer != HAL_OK)
 		{
 
-			  n = sprintf(buf, "Error while trying to add CAN message to fifo er = 0x%02x\n", er);
+			  n = sprintf(buf, "Error while trying to add CAN message to fifo er = 0x%02x\n", mer);
+			  CDC_Transmit_FS(buf, n);
+			  n = sprintf(buf, "fdcan2 error state = 0x%08x\n", hfdcan2.ErrorCode);
 			  CDC_Transmit_FS(buf, n);
 
 		  //Error_Handler();
+		} else {
+			n  = sprintf(buf, "Successful transmission");
+			CDC_Transmit_FS(buf, n);
 		}
 
     osDelay(700);
