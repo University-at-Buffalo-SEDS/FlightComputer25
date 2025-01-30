@@ -69,8 +69,27 @@ const osThreadAttr_t LogDataTask_attributes = {
   .priority = (osPriority_t) osPriorityLow,
   .stack_size = 128 * 4
 };
+/* Definitions for CANTransmitTest */
+osThreadId_t CANTransmitTestHandle;
+const osThreadAttr_t CANTransmitTest_attributes = {
+  .name = "CANTransmitTest",
+  .priority = (osPriority_t) osPriorityLow,
+  .stack_size = 128 * 4
+};
+/* Definitions for CANRecieveTest */
+osThreadId_t CANRecieveTestHandle;
+const osThreadAttr_t CANRecieveTest_attributes = {
+  .name = "CANRecieveTest",
+  .priority = (osPriority_t) osPriorityLow,
+  .stack_size = 128 * 4
+};
 /* USER CODE BEGIN PV */
-
+FDCAN_TxHeaderTypeDef TxHeader;
+FDCAN_RxHeaderTypeDef RxHeader;
+uint8_t TxData0[] = {0x10, 0x32, 0x54, 0x76, 0x98, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
+uint8_t TxData1[] = {0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55};
+uint8_t TxData2[] = {0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00};
+uint8_t RxData[12];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -82,6 +101,8 @@ static void MX_USART2_UART_Init(void);
 void StartFlightLogic(void *argument);
 void StartReadSensors(void *argument);
 void StartLogData(void *argument);
+void StartCANTransmitTest(void *argument);
+void StartCANRecieveTest(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -157,6 +178,12 @@ int main(void)
 
   /* creation of LogDataTask */
   LogDataTaskHandle = osThreadNew(StartLogData, NULL, &LogDataTask_attributes);
+
+  /* creation of CANTransmitTest */
+  CANTransmitTestHandle = osThreadNew(StartCANTransmitTest, NULL, &CANTransmitTest_attributes);
+
+  /* creation of CANRecieveTest */
+  CANRecieveTestHandle = osThreadNew(StartCANRecieveTest, NULL, &CANRecieveTest_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -466,11 +493,74 @@ void StartLogData(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  uint8_t toPrint[] = "ts runnin fr"; //Data to send
-	  	  	CDC_Transmit_FS(toPrint, sizeof(toPrint)-1);
-    osDelay(1);
+	  uint8_t toPrint[] = "Device online\n"; //Data to send
+	  CDC_Transmit_FS(toPrint, sizeof(toPrint)-1);
+    osDelay(2000);
   }
   /* USER CODE END StartLogData */
+}
+
+/* USER CODE BEGIN Header_StartCANTransmitTest */
+/**
+* @brief Function implementing the CANTransmitTest thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartCANTransmitTest */
+void StartCANTransmitTest(void *argument)
+{
+  /* USER CODE BEGIN StartCANTransmitTest */
+  /* Infinite loop */
+  for(;;)
+  {
+	  	TxHeader.Identifier = 0x444;
+		TxHeader.IdType = FDCAN_STANDARD_ID;
+		TxHeader.TxFrameType = FDCAN_DATA_FRAME;
+		TxHeader.DataLength = FDCAN_DLC_BYTES_12;
+		TxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+		TxHeader.BitRateSwitch = FDCAN_BRS_ON;
+		TxHeader.FDFormat = FDCAN_FD_CAN;
+		TxHeader.TxEventFifoControl = FDCAN_STORE_TX_EVENTS;
+		TxHeader.MessageMarker = 0x52;
+		HAL_StatusTypeDef er = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData0);
+		if (er != HAL_OK)
+		{
+			  char buf[60];//Data to send
+			  //0x01U
+			  int n = sprintf(buf, "Error while trying to add CAN message to fifo er = 0x%02x\n", er);
+			  CDC_Transmit_FS(buf, n);
+
+		  //Error_Handler();
+		}
+
+    osDelay(700);
+  }
+  /* USER CODE END StartCANTransmitTest */
+}
+
+/* USER CODE BEGIN Header_StartCANRecieveTest */
+/**
+* @brief Function implementing the CANRecieveTest thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartCANRecieveTest */
+void StartCANRecieveTest(void *argument)
+{
+  /* USER CODE BEGIN StartCANRecieveTest */
+  /* Infinite loop */
+  for(;;)
+  {
+	  if(HAL_FDCAN_GetRxFifoFillLevel(&hfdcan2, FDCAN_RX_FIFO0) > 0) {
+		  uint8_t toPrint[] = "There are some messages in the buffer\n"; //Data to send
+		  CDC_Transmit_FS(toPrint, sizeof(toPrint)-1);
+	  } else {
+		  uint8_t toPrint[] = "NO MESSAGES IN FIFO0\n"; //Data to send
+		  CDC_Transmit_FS(toPrint, sizeof(toPrint)-1);
+	  }
+    osDelay(500);
+  }
+  /* USER CODE END StartCANRecieveTest */
 }
 
 /**
