@@ -270,21 +270,21 @@ static void MX_FDCAN2_Init(void)
   /* USER CODE END FDCAN2_Init 1 */
   hfdcan2.Instance = FDCAN2;
   hfdcan2.Init.ClockDivider = FDCAN_CLOCK_DIV1;
-  hfdcan2.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
-  hfdcan2.Init.Mode = FDCAN_MODE_NORMAL;
-  hfdcan2.Init.AutoRetransmission = DISABLE;
-  hfdcan2.Init.TransmitPause = DISABLE;
+  hfdcan2.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
+  hfdcan2.Init.Mode = FDCAN_MODE_INTERNAL_LOOPBACK;
+  hfdcan2.Init.AutoRetransmission = ENABLE;
+  hfdcan2.Init.TransmitPause = ENABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
-  hfdcan2.Init.NominalPrescaler = 16;
-  hfdcan2.Init.NominalSyncJumpWidth = 1;
-  hfdcan2.Init.NominalTimeSeg1 = 1;
-  hfdcan2.Init.NominalTimeSeg2 = 1;
+  hfdcan2.Init.NominalPrescaler = 1;
+  hfdcan2.Init.NominalSyncJumpWidth = 16;
+  hfdcan2.Init.NominalTimeSeg1 = 63;
+  hfdcan2.Init.NominalTimeSeg2 = 16;
   hfdcan2.Init.DataPrescaler = 1;
-  hfdcan2.Init.DataSyncJumpWidth = 1;
-  hfdcan2.Init.DataTimeSeg1 = 1;
-  hfdcan2.Init.DataTimeSeg2 = 1;
-  hfdcan2.Init.StdFiltersNbr = 0;
-  hfdcan2.Init.ExtFiltersNbr = 0;
+  hfdcan2.Init.DataSyncJumpWidth = 4;
+  hfdcan2.Init.DataTimeSeg1 = 5;
+  hfdcan2.Init.DataTimeSeg2 = 4;
+  hfdcan2.Init.StdFiltersNbr = 1;
+  hfdcan2.Init.ExtFiltersNbr = 1;
   hfdcan2.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
   if (HAL_FDCAN_Init(&hfdcan2) != HAL_OK)
   {
@@ -513,6 +513,10 @@ void StartCANTransmitTest(void *argument)
   /* Infinite loop */
   for(;;)
   {
+	  HAL_FDCAN_StateTypeDef canState = hfdcan2.State;
+	  char buf[60];// to send
+	  int n = sprintf(buf, "Current CAN state: = 0x%02x\n", canState);
+	  CDC_Transmit_FS(buf, n);
 	  	TxHeader.Identifier = 0x444;
 		TxHeader.IdType = FDCAN_STANDARD_ID;
 		TxHeader.TxFrameType = FDCAN_DATA_FRAME;
@@ -525,9 +529,8 @@ void StartCANTransmitTest(void *argument)
 		HAL_StatusTypeDef er = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData0);
 		if (er != HAL_OK)
 		{
-			  char buf[60];//Data to send
-			  //0x01U
-			  int n = sprintf(buf, "Error while trying to add CAN message to fifo er = 0x%02x\n", er);
+
+			  n = sprintf(buf, "Error while trying to add CAN message to fifo er = 0x%02x\n", er);
 			  CDC_Transmit_FS(buf, n);
 
 		  //Error_Handler();
