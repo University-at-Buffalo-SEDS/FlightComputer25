@@ -38,15 +38,13 @@ void BMI088_Accel_WriteReg(BMI088_AccelHandle_t *handle, uint8_t reg, uint8_t da
 
 void BMI088_Accel_ReadBuf(BMI088_AccelHandle_t *handle, uint8_t reg, uint8_t *buf, uint8_t len) {
     uint8_t tx[2];
-    tx[0] = (reg | 0x80); // read
-    tx[1] = 0x00;         // dummy
+    tx[0] = (reg | 0x80);
+    tx[1] = 0x00;
 
     BMI088_Accel_Select(handle);
 
-    // 1) Transmit register address + dummy
     HAL_SPI_Transmit(handle->hspi, tx, 2, HAL_MAX_DELAY);
 
-    // 2) Receive 'len' bytes
     HAL_SPI_Receive(handle->hspi, buf, len, HAL_MAX_DELAY);
 
     BMI088_Accel_Deselect(handle);
