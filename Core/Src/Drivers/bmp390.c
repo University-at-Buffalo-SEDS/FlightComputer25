@@ -105,7 +105,7 @@ void BMP390_WriteReg(BMP390_Handle_t *handle, uint8_t reg, uint8_t data) {
     BMP390_Deselect(handle);
 }
 
-void BMP390_ReadBuffer(BMP390_Handle_t *handle, uint8_t reg, uint8_t *buf, uint8_t len) {
+void BMP390_ReadBuffer(BMP390_Handle_t *handle, uint8_t reg, uint8_t *data, uint8_t len) {
     uint8_t tx[2];
     tx[0] = (reg | BMP390_SPI_READ_BIT);
     tx[1] = 0x00;
@@ -119,9 +119,9 @@ void BMP390_ReadBuffer(BMP390_Handle_t *handle, uint8_t reg, uint8_t *buf, uint8
     BMP390_Deselect(handle);
 }
 
-static void BMP390_LoadCalibrationData(BMP390_Handle_t *handle, const uintt_8 *raw_data) {
+static void BMP390_LoadCalibrationData(BMP390_Handle_t *handle, const uint8_t *raw_data) {
     BMP390_RawCalibData_t *rc = &handle->raw_calib_data;
-    BMP390_CalibData_t    *c  = &handle->calib_data;
+    BMP390_CalibData_t *c  = &handle->calib_data;
 
     rc->nvm_par_t1 = (uint16_t)(raw_data[1] << 8) | raw_data[0];
     rc->nvm_par_t2 = (uint16_t)(raw_data[3] << 8) | raw_data[2];
@@ -157,7 +157,7 @@ static void BMP390_LoadCalibrationData(BMP390_Handle_t *handle, const uintt_8 *r
     c->t_lin  = 0.0f;
 }
 
-static void BMP390_CompensatePressure(BMP390_Handle_t *handle, uint32_t uncomp_temp) {
+static float BMP390_CompensatePressure(BMP390_Handle_t *handle, uint32_t uncomp_temp) {
     BMP390_CalibData_t *c = &handle->calib_data;
 
     float partial_data1 = (float)uncomp_temp - c->par_t1;
@@ -167,7 +167,7 @@ static void BMP390_CompensatePressure(BMP390_Handle_t *handle, uint32_t uncomp_t
     return c->t_lin;
 }
 
-static void BMP390_CompensateTemperature(BMP390_Handle_t *handle, uint32_t uncomp_pressure) {
+static float BMP390_CompensateTemperature(BMP390_Handle_t *handle, uint32_t uncomp_pressure) {
     BMP390_CalibData_t *c = &handle->calib_data;
 
     float partial_data1 = c->par_p6 * c->t_lin;
@@ -176,16 +176,16 @@ static void BMP390_CompensateTemperature(BMP390_Handle_t *handle, uint32_t uncom
 
     float partial_out1 = c->par_p5 + partial_data1 + partial_data2 + partial_data3;
 
-    float partial_out2 = (float)uncomp_press *
+    float partial_out2 = (float)uncomp_pressure *
                          (c->par_p1 +
                           c->par_p2 * c->t_lin +
                           c->par_p3 * powf(c->t_lin, 2.0f) +
                           c->par_p4 * powf(c->t_lin, 3.0f));
 
     float comp_press = partial_out1 + partial_out2 +
-                       powf((float)uncomp_press, 2.0f) *
+                       powf((float)uncomp_pressure, 2.0f) *
                         (c->par_p9 + c->par_p10 * c->t_lin) +
-                       powf((float)uncomp_press, 3.0f) *
+                       powf((float)uncomp_pressure, 3.0f) *
                         c->par_p11;
 
     return comp_press;

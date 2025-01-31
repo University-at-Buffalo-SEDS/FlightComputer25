@@ -25,15 +25,6 @@
 #define BMP390_SPI_READ_BIT     (0x80)
 
 typedef struct {
-	SPI_HandleTypeDef *hspi;
-	GPIO_TypeDef *csPort;
-	uint16_t csPin;
-	float last_altitude;
-	float last_pressure;
-	float last_temperature;
-} BMP390_Handle_t;
-
-typedef struct {
     uint16_t nvm_par_t1;
     uint16_t nvm_par_t2;
     int8_t   nvm_par_t3;
@@ -67,6 +58,18 @@ typedef struct {
     float par_p11;
     float t_lin;
 } BMP390_CalibData_t;
+
+typedef struct {
+	SPI_HandleTypeDef *hspi;
+	GPIO_TypeDef *csPort;
+	uint16_t csPin;
+	BMP390_CalibData_t calib_data;
+	BMP390_RawCalibData_t raw_calib_data;
+	float last_altitude;
+	float last_pressure;
+	float last_temperature;
+} BMP390_Handle_t;
+
 
 int BMP390_Init(BMP390_Handle_t *handle);
 void BMP390_Step(BMP390_Handle_t *handle);
