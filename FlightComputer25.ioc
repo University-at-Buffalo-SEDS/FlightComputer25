@@ -25,6 +25,7 @@ FREERTOS.Tasks01=FlightLogicTask,40,128,StartFlightLogic,Default,NULL,Dynamic,NU
 FREERTOS.configENABLE_FPU=1
 FREERTOS.configUSE_NEWLIB_REENTRANT=1
 File.Version=6
+GPIO.groupedBy=Group By Peripherals
 KeepUserPlacement=false
 Mcu.CPN=STM32G491CET6
 Mcu.Family=STM32G4
