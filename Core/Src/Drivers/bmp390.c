@@ -69,7 +69,7 @@ float BMP390_GetTemperature(BMP390_Handle_t *handle) {
 	return handle->last_temperature;
 }
 
-float BMP390_GeAltitude(BMP390_Handle_t *handle) {
+float BMP390_GetAltitude(BMP390_Handle_t *handle) {
 	return handle->last_altitude;
 }
 

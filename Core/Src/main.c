@@ -20,10 +20,12 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "usb_device.h"
-
+#include "usbd_cdc_if.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-  
+#include "Drivers/bmi088_gyro.h"
+#include "Drivers/bmi088_accel.h"
+#include "Drivers/bmp390.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -33,7 +35,14 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define BMI088_ACCEL_CS_Pin   ACCEL_nCS_Pin
+#define BMI088_ACCEL_CS_Port  GPIOB
 
+#define BMI088_GYRO_CS_Pin    GYRO_nCS_Pin
+#define BMI088_GYRO_CS_Port   GPIOB
+
+#define BMP390_CS_Pin         BARO_nCS_Pin
+#define BMP390_CS_Port        GPIOB
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -48,11 +57,11 @@ SPI_HandleTypeDef hspi1;
 
 UART_HandleTypeDef huart2;
 
-/* Definitions for FlightLogicTask */
-osThreadId_t FlightLogicTaskHandle;
-const osThreadAttr_t FlightLogicTask_attributes = {
-  .name = "FlightLogicTask",
-  .priority = (osPriority_t) osPriorityHigh,
+/* Definitions for PrintSensorData */
+osThreadId_t PrintSensorDataHandle;
+const osThreadAttr_t PrintSensorData_attributes = {
+  .name = "PrintSensorData",
+  .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 128 * 4
 };
 /* Definitions for ReadSensorsTask */
@@ -62,15 +71,21 @@ const osThreadAttr_t ReadSensorsTask_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 128 * 4
 };
-/* Definitions for LogDataTask */
-osThreadId_t LogDataTaskHandle;
-const osThreadAttr_t LogDataTask_attributes = {
-  .name = "LogDataTask",
-  .priority = (osPriority_t) osPriorityLow,
-  .stack_size = 128 * 4
+/* Definitions for sensorDataMutex */
+osMutexId_t sensorDataMutexHandle;
+const osMutexAttr_t sensorDataMutex_attributes = {
+  .name = "sensorDataMutex"
 };
 /* USER CODE BEGIN PV */
+float g_gyroData[3]        = {0.0f, 0.0f, 0.0f};
+float g_accelData[3]       = {0.0f, 0.0f, 0.0f};
+float g_baroAltitude       = 0.0f;
+float g_baroPressure       = 0.0f;
+float g_baroTemperature    = 0.0f;
 
+static BMI088_AccelHandle_t accelHandle;
+static BMI088_GyroHandle_t  gyroHandle;
+static BMP390_Handle_t      baroHandle;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -79,9 +94,8 @@ static void MX_GPIO_Init(void);
 static void MX_FDCAN2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART2_UART_Init(void);
-void StartFlightLogic(void *argument);
+void StartPrintSensorData(void *argument);
 void StartReadSensors(void *argument);
-void StartLogData(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -130,6 +144,9 @@ int main(void)
 
   /* Init scheduler */
   osKernelInitialize();
+  /* Create the mutex(es) */
+  /* creation of sensorDataMutex */
+  sensorDataMutexHandle = osMutexNew(&sensorDataMutex_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -148,14 +165,11 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of FlightLogicTask */
-  FlightLogicTaskHandle = osThreadNew(StartFlightLogic, NULL, &FlightLogicTask_attributes);
+  /* creation of PrintSensorData */
+  PrintSensorDataHandle = osThreadNew(StartPrintSensorData, NULL, &PrintSensorData_attributes);
 
   /* creation of ReadSensorsTask */
   ReadSensorsTaskHandle = osThreadNew(StartReadSensors, NULL, &ReadSensorsTask_attributes);
-
-  /* creation of LogDataTask */
-  LogDataTaskHandle = osThreadNew(StartLogData, NULL, &LogDataTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -284,7 +298,7 @@ static void MX_SPI1_Init(void)
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
@@ -411,22 +425,44 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartFlightLogic */
+/* USER CODE BEGIN Header_StartPrintSensorData */
 /**
-  * @brief  Function implementing the FlightLogicTask thread.
+  * @brief  Function implementing the PrintSensorData thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartFlightLogic */
-void StartFlightLogic(void *argument)
+/* USER CODE END Header_StartPrintSensorData */
+void StartPrintSensorData(void *argument)
 {
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN 5 */
+  char msgBuf[128];
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    osMutexAcquire(sensorDataMutexHandle, osWaitForever);
+    osDelay(1000);
+    float ax = g_accelData[0];
+	float ay = g_accelData[1];
+	float az = g_accelData[2];
+
+	float gx = g_gyroData[0];
+	float gy = g_gyroData[1];
+	float gz = g_gyroData[2];
+
+	float alt  = g_baroAltitude;
+	float pres = g_baroPressure;
+	float temp = g_baroTemperature;
+	osMutexRelease(sensorDataMutexHandle);
+
+	sprintf(msgBuf,
+			"Accel X=%.2f Y=%.2f Z=%.2f | "
+            "Gyro X=%.2f Y=%.2f Z=%.2f | "
+            "Alt=%.2f m  Press=%.2f Pa  Temp=%.2f C\r\n",
+            ax, ay, az, gx, gy, gz, alt, pres, temp);
+	CDC_Transmit_FS((uint8_t*)msgBuf, (uint16_t)strlen(msgBuf));
+	osDelay(1000);
   }
   /* USER CODE END 5 */
 }
@@ -441,30 +477,64 @@ void StartFlightLogic(void *argument)
 void StartReadSensors(void *argument)
 {
   /* USER CODE BEGIN StartReadSensors */
+  accelHandle.hspi      = &hspi1;
+  accelHandle.csPort    = BMI088_ACCEL_CS_Port;
+  accelHandle.csPin     = BMI088_ACCEL_CS_Pin;
+  accelHandle.rangeConf = BMI088_ACC_24G_RANGE;
+  accelHandle.samplingConf = (BMI088_ACC_BWP_OSR4 | BMI088_ACC_ODR_200Hz);
+
+  gyroHandle.hspi   = &hspi1;
+  gyroHandle.csPort = BMI088_GYRO_CS_Port;
+  gyroHandle.csPin  = BMI088_GYRO_CS_Pin;
+
+  baroHandle.hspi   = &hspi1;
+  baroHandle.csPort = BMP390_CS_Port;
+  baroHandle.csPin  = BMP390_CS_Pin;
+
+  if (BMI088_Accel_Init(&accelHandle) == 0) {
+    while(1){}
+  }
+  if (BMI088_Gyro_Init(&gyroHandle) == 0) {
+	  while(1){}
+  }
+  if (BMP390_Init(&baroHandle) == 0) {
+	  while(1){}
+  }
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    BMI088_Accel_Step(&accelHandle);
+    float localAccel[3] = {0};
+    BMI088_Accel_Get(&accelHandle, localAccel);
+
+    BMI088_Gyro_Step(&gyroHandle);
+    float localGyro[3] = {0};
+    BMI088_Gyro_Get(&gyroHandle, localGyro);
+
+    BMP390_Step(&baroHandle);
+    float localAlt  = BMP390_GetAltitude(&baroHandle);
+    float localPres = BMP390_GetPressure(&baroHandle);
+    float localTemp = BMP390_GetTemperature(&baroHandle);
+
+    osMutexAcquire(sensorDataMutexHandle, osWaitForever);
+
+    g_accelData[0] = localAccel[0];
+    g_accelData[1] = localAccel[1];
+    g_accelData[2] = localAccel[2];
+
+    g_gyroData[0]  = localGyro[0];
+    g_gyroData[1]  = localGyro[1];
+    g_gyroData[2]  = localGyro[2];
+
+    g_baroAltitude    = localAlt;
+    g_baroPressure    = localPres;
+    g_baroTemperature = localTemp;
+
+    osMutexRelease(sensorDataMutexHandle);
+
+    osDelay(100);
   }
   /* USER CODE END StartReadSensors */
-}
-
-/* USER CODE BEGIN Header_StartLogData */
-/**
-* @brief Function implementing the LogDataTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartLogData */
-void StartLogData(void *argument)
-{
-  /* USER CODE BEGIN StartLogData */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END StartLogData */
 }
 
 /**
