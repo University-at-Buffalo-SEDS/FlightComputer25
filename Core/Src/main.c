@@ -20,12 +20,12 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "usb_device.h"
-#include "usbd_cdc_if.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "Drivers/bmi088_gyro.h"
 #include "Drivers/bmi088_accel.h"
 #include "Drivers/bmp390.h"
+#include <stdarg.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,6 +43,7 @@
 
 #define BMP390_CS_Pin         BARO_nCS_Pin
 #define BMP390_CS_Port        GPIOB
+#define PRINT_BUFFER_SIZE     100
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -103,7 +104,13 @@ void StartReadSensors(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void CDC_Transmit_Print(const char *format, ...) {
+	char buf[PRINT_BUFFER_SIZE];
+	va_list args;
+	va_start(args, format);
+	int n = vsprintf(buf, format, args);
+	CDC_Transmit_FS(buf, n);
+}
 /* USER CODE END 0 */
 
 /**
@@ -437,10 +444,10 @@ void StartPrintSensorData(void *argument)
   /* init code for USB_Device */
   MX_USB_Device_Init();
   /* USER CODE BEGIN 5 */
-  char msgBuf[128];
   /* Infinite loop */
   for(;;)
   {
+	  CDC_Transmit_Print("i am here");
     osMutexAcquire(sensorDataMutexHandle, osWaitForever);
     osDelay(1000);
     float ax = g_accelData[0];
@@ -456,12 +463,10 @@ void StartPrintSensorData(void *argument)
 	float temp = g_baroTemperature;
 	osMutexRelease(sensorDataMutexHandle);
 
-	sprintf(msgBuf,
-			"Accel X=%.2f Y=%.2f Z=%.2f | "
+	CDC_Transmit_Print("Accel X=%.2f Y=%.2f Z=%.2f | "
             "Gyro X=%.2f Y=%.2f Z=%.2f | "
             "Alt=%.2f m  Press=%.2f Pa  Temp=%.2f C\r\n",
             ax, ay, az, gx, gy, gz, alt, pres, temp);
-	CDC_Transmit_FS((uint8_t*)msgBuf, (uint16_t)strlen(msgBuf));
 	osDelay(1000);
   }
   /* USER CODE END 5 */
@@ -492,13 +497,13 @@ void StartReadSensors(void *argument)
   baroHandle.csPin  = BMP390_CS_Pin;
 
   if (BMI088_Accel_Init(&accelHandle) == 0) {
-    while(1){}
+    CDC_Transmit_Print("failed accel");
   }
   if (BMI088_Gyro_Init(&gyroHandle) == 0) {
-	  while(1){}
+	  CDC_Transmit_Print("failed gyro");
   }
   if (BMP390_Init(&baroHandle) == 0) {
-	  while(1){}
+	  CDC_Transmit_Print("failed baro");
   }
   /* Infinite loop */
   for(;;)
