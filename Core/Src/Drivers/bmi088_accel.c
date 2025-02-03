@@ -16,7 +16,11 @@ uint8_t BMI088_Accel_ReadReg(BMI088_AccelHandle_t *handle, uint8_t reg) {
     tx[1] = 0x00;
 
     BMI088_Accel_Select(handle);
-    HAL_SPI_TransmitReceive(handle->hspi, tx, rx, 2, HAL_MAX_DELAY);
+    HAL_StatusTypeDef err = HAL_SPI_TransmitReceive(handle->hspi, tx, rx, 2, HAL_MAX_DELAY);
+
+    //CDC_Transmit_Print("HAL SPI Transmission status: 0x%02x\r\n", err);
+    CDC_Transmit_Print("Rx buffer contents: 0x%02x", rx[0]);
+    CDC_Transmit_Print("%02x\r\n", rx[1]);
 
     BMI088_Accel_Deselect(handle);
 
@@ -67,9 +71,10 @@ int BMI088_Accel_Init(BMI088_AccelHandle_t *handle) {
     (void)BMI088_Accel_ReadReg(handle, BMI088_ACC_REG_CHIP_ID);
 
     uint8_t chipID = BMI088_Accel_ReadReg(handle, BMI088_ACC_REG_CHIP_ID);
-    CDC_Transmit_Print("CHIP ID: %0x02X\r\n", chipID);
+    CDC_Transmit_Print("CHIP ID: 0x%02x\r\n", chipID);
     if (chipID != BMI088_ACC_CHIP_ID) {
         status = 0;
+        CDC_Transmit_Print("ts not workign");
     }
 
     BMI088_Accel_WriteReg(handle, BMI088_ACC_REG_PWR_CONF, 0x00);

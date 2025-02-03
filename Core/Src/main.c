@@ -107,13 +107,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  accelHandle.hspi = &hspi1;
-  accelHandle.csPort = BMI088_ACCEL_CS_Port;
-  accelHandle.csPin = BMI088_ACCEL_CS_Pin;
-  accelHandle.rangeConf = BMI088_ACC_24G_RANGE;
-  accelHandle.samplingConf = (BMI088_ACC_BWP_OSR4 | BMI088_ACC_ODR_200Hz);
 
-  BMI088_Accel_Init(&accelHandle);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -130,7 +124,15 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USB_Device_Init();
   /* USER CODE BEGIN 2 */
+  accelHandle.hspi = &hspi1;
+	accelHandle.csPort = BMI088_ACCEL_CS_Port;
+	accelHandle.csPin = BMI088_ACCEL_CS_Pin;
+	accelHandle.rangeConf = BMI088_ACC_24G_RANGE;
+	accelHandle.samplingConf = (BMI088_ACC_BWP_OSR4 | BMI088_ACC_ODR_200Hz);
 
+	HAL_Delay(5000);
+
+	BMI088_Accel_Init(&accelHandle);
   /* USER CODE END 2 */
 
   /* Infinite loop */
