@@ -9,19 +9,18 @@ static inline void BMI088_Accel_Deselect(BMI088_AccelHandle_t *handle) {
 }
 
 uint8_t BMI088_Accel_ReadReg(BMI088_AccelHandle_t *handle, uint8_t reg) {
-    uint8_t tx[3];
-    uint8_t rx[3];
+    uint8_t tx[2];
+    uint8_t rx[2];
 
     tx[0] = reg | 0x80;
     tx[1] = 0x00;
-    tx[2] = 0x00;
 
     BMI088_Accel_Select(handle);
-    HAL_SPI_TransmitReceive(handle->hspi, tx, rx, 3, HAL_MAX_DELAY);
+    HAL_SPI_TransmitReceive(handle->hspi, tx, rx, 2, HAL_MAX_DELAY);
 
     BMI088_Accel_Deselect(handle);
 
-    return rx[2];
+    return rx[1];
 }
 
 void BMI088_Accel_WriteReg(BMI088_AccelHandle_t *handle, uint8_t reg, uint8_t data) {
@@ -57,8 +56,6 @@ int BMI088_Accel_Init(BMI088_AccelHandle_t *handle) {
     handle->lastAccel[1] = NAN;
     handle->lastAccel[2] = NAN;
 
-    BMI088_Accel_Deselect(handle);
-    HAL_Delay(1);
     BMI088_Accel_Select(handle);
     HAL_Delay(1);
     BMI088_Accel_Deselect(handle);
@@ -70,6 +67,7 @@ int BMI088_Accel_Init(BMI088_AccelHandle_t *handle) {
     (void)BMI088_Accel_ReadReg(handle, BMI088_ACC_REG_CHIP_ID);
 
     uint8_t chipID = BMI088_Accel_ReadReg(handle, BMI088_ACC_REG_CHIP_ID);
+    CDC_Transmit_Print("CHIP ID: %0x02X\r\n", chipID);
     if (chipID != BMI088_ACC_CHIP_ID) {
         status = 0;
     }

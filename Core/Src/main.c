@@ -81,7 +81,7 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void CDC_Transmit_Print(const char *format, ...) {
+extern void CDC_Transmit_Print(const char *format, ...) {
 	char buf[PRINT_BUFFER_SIZE];
 	va_list args;
 	va_start(args, format);
@@ -140,10 +140,10 @@ int main(void)
     /* USER CODE END WHILE */
     BMI088_Accel_Step(&accelHandle);
     BMI088_Accel_Get(&accelHandle, g_accelData);
-    CDC_Transmit_Print("%.2f", g_accelData[0]);
-    CDC_Transmit_Print("%.2f", g_accelData[1]);
-    CDC_Transmit_Print("%.2f", g_accelData[2]);
-    HAL_Delay(1000);
+    CDC_Transmit_Print("X Accel: %.2f\r\n", g_accelData[0]);
+    CDC_Transmit_Print("Y Accel: %.2f\r\n", g_accelData[1]);
+    CDC_Transmit_Print("Z Accel: %.2f\r\n", g_accelData[2]);
+    HAL_Delay(100);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
