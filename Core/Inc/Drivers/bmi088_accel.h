@@ -25,8 +25,8 @@ typedef struct {
     GPIO_TypeDef *csPort;
     uint16_t csPin;
     float lastAccel[3];
-    uint8_t rangeConf;      // e.g. BMI088_ACC_24G_RANGE
-    uint8_t samplingConf;   // e.g. BMI088_ACC_BWP_OSR4 | BMI088_ACC_ODR_200Hz
+    uint8_t rangeConf;      // BMI088_ACC_24G_RANGE
+    uint8_t samplingConf;   // BMI088_ACC_BWP_OSR4 | BMI088_ACC_ODR_200Hz
 } BMI088_AccelHandle_t;
 
 int BMI088_Accel_Init(BMI088_AccelHandle_t *handle);

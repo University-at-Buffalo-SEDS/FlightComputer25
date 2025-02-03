@@ -18,8 +18,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cmsis_os.h"
 #include "usb_device.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "Drivers/bmi088_gyro.h"
@@ -43,7 +43,7 @@
 
 #define BMP390_CS_Pin         BARO_nCS_Pin
 #define BMP390_CS_Port        GPIOB
-#define PRINT_BUFFER_SIZE     100
+#define PRINT_BUFFER_SIZE     256
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -58,35 +58,15 @@ SPI_HandleTypeDef hspi1;
 
 UART_HandleTypeDef huart2;
 
-/* Definitions for PrintSensorData */
-osThreadId_t PrintSensorDataHandle;
-const osThreadAttr_t PrintSensorData_attributes = {
-  .name = "PrintSensorData",
-  .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 128 * 4
-};
-/* Definitions for ReadSensorsTask */
-osThreadId_t ReadSensorsTaskHandle;
-const osThreadAttr_t ReadSensorsTask_attributes = {
-  .name = "ReadSensorsTask",
-  .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 128 * 4
-};
-/* Definitions for sensorDataMutex */
-osMutexId_t sensorDataMutexHandle;
-const osMutexAttr_t sensorDataMutex_attributes = {
-  .name = "sensorDataMutex"
-};
 /* USER CODE BEGIN PV */
-float g_gyroData[3]        = {0.0f, 0.0f, 0.0f};
 float g_accelData[3]       = {0.0f, 0.0f, 0.0f};
 float g_baroAltitude       = 0.0f;
 float g_baroPressure       = 0.0f;
 float g_baroTemperature    = 0.0f;
 
 static BMI088_AccelHandle_t accelHandle;
-static BMI088_GyroHandle_t  gyroHandle;
-static BMP390_Handle_t      baroHandle;
+//static BMI088_GyroHandle_t  gyroHandle;
+//static BMP390_Handle_t      baroHandle;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -95,9 +75,6 @@ static void MX_GPIO_Init(void);
 static void MX_FDCAN2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART2_UART_Init(void);
-void StartPrintSensorData(void *argument);
-void StartReadSensors(void *argument);
-
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -130,7 +107,13 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  accelHandle.hspi = &hspi1;
+  accelHandle.csPort = BMI088_ACCEL_CS_Port;
+  accelHandle.csPin = BMI088_ACCEL_CS_Pin;
+  accelHandle.rangeConf = BMI088_ACC_24G_RANGE;
+  accelHandle.samplingConf = (BMI088_ACC_BWP_OSR4 | BMI088_ACC_ODR_200Hz);
 
+  BMI088_Accel_Init(&accelHandle);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -145,58 +128,22 @@ int main(void)
   MX_FDCAN2_Init();
   MX_SPI1_Init();
   MX_USART2_UART_Init();
+  MX_USB_Device_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
-
-  /* Init scheduler */
-  osKernelInitialize();
-  /* Create the mutex(es) */
-  /* creation of sensorDataMutex */
-  sensorDataMutexHandle = osMutexNew(&sensorDataMutex_attributes);
-
-  /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
-  /* USER CODE END RTOS_MUTEX */
-
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
-  /* USER CODE END RTOS_SEMAPHORES */
-
-  /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
-
-  /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
-  /* USER CODE END RTOS_QUEUES */
-
-  /* Create the thread(s) */
-  /* creation of PrintSensorData */
-  PrintSensorDataHandle = osThreadNew(StartPrintSensorData, NULL, &PrintSensorData_attributes);
-
-  /* creation of ReadSensorsTask */
-  ReadSensorsTaskHandle = osThreadNew(StartReadSensors, NULL, &ReadSensorsTask_attributes);
-
-  /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
-
-  /* USER CODE BEGIN RTOS_EVENTS */
-  /* add events, ... */
-  /* USER CODE END RTOS_EVENTS */
-
-  /* Start scheduler */
-  osKernelStart();
-
-  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
-
+    BMI088_Accel_Step(&accelHandle);
+    BMI088_Accel_Get(&accelHandle, g_accelData);
+    CDC_Transmit_Print("%.2f", g_accelData[0]);
+    CDC_Transmit_Print("%.2f", g_accelData[1]);
+    CDC_Transmit_Print("%.2f", g_accelData[2]);
+    HAL_Delay(1000);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -431,116 +378,6 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
-
-/* USER CODE BEGIN Header_StartPrintSensorData */
-/**
-  * @brief  Function implementing the PrintSensorData thread.
-  * @param  argument: Not used
-  * @retval None
-  */
-/* USER CODE END Header_StartPrintSensorData */
-void StartPrintSensorData(void *argument)
-{
-  /* init code for USB_Device */
-  MX_USB_Device_Init();
-  /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-	  CDC_Transmit_Print("i am here");
-    osMutexAcquire(sensorDataMutexHandle, osWaitForever);
-    osDelay(1000);
-    float ax = g_accelData[0];
-	float ay = g_accelData[1];
-	float az = g_accelData[2];
-
-	float gx = g_gyroData[0];
-	float gy = g_gyroData[1];
-	float gz = g_gyroData[2];
-
-	float alt  = g_baroAltitude;
-	float pres = g_baroPressure;
-	float temp = g_baroTemperature;
-	osMutexRelease(sensorDataMutexHandle);
-
-	CDC_Transmit_Print("Accel X=%.2f Y=%.2f Z=%.2f | "
-            "Gyro X=%.2f Y=%.2f Z=%.2f | "
-            "Alt=%.2f m  Press=%.2f Pa  Temp=%.2f C\r\n",
-            ax, ay, az, gx, gy, gz, alt, pres, temp);
-	osDelay(1000);
-  }
-  /* USER CODE END 5 */
-}
-
-/* USER CODE BEGIN Header_StartReadSensors */
-/**
-* @brief Function implementing the ReadSensorsTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartReadSensors */
-void StartReadSensors(void *argument)
-{
-  /* USER CODE BEGIN StartReadSensors */
-  accelHandle.hspi      = &hspi1;
-  accelHandle.csPort    = BMI088_ACCEL_CS_Port;
-  accelHandle.csPin     = BMI088_ACCEL_CS_Pin;
-  accelHandle.rangeConf = BMI088_ACC_24G_RANGE;
-  accelHandle.samplingConf = (BMI088_ACC_BWP_OSR4 | BMI088_ACC_ODR_200Hz);
-
-  gyroHandle.hspi   = &hspi1;
-  gyroHandle.csPort = BMI088_GYRO_CS_Port;
-  gyroHandle.csPin  = BMI088_GYRO_CS_Pin;
-
-  baroHandle.hspi   = &hspi1;
-  baroHandle.csPort = BMP390_CS_Port;
-  baroHandle.csPin  = BMP390_CS_Pin;
-
-  if (BMI088_Accel_Init(&accelHandle) == 0) {
-    CDC_Transmit_Print("failed accel");
-  }
-  if (BMI088_Gyro_Init(&gyroHandle) == 0) {
-	  CDC_Transmit_Print("failed gyro");
-  }
-  if (BMP390_Init(&baroHandle) == 0) {
-	  CDC_Transmit_Print("failed baro");
-  }
-  /* Infinite loop */
-  for(;;)
-  {
-    BMI088_Accel_Step(&accelHandle);
-    float localAccel[3] = {0};
-    BMI088_Accel_Get(&accelHandle, localAccel);
-
-    BMI088_Gyro_Step(&gyroHandle);
-    float localGyro[3] = {0};
-    BMI088_Gyro_Get(&gyroHandle, localGyro);
-
-    BMP390_Step(&baroHandle);
-    float localAlt  = BMP390_GetAltitude(&baroHandle);
-    float localPres = BMP390_GetPressure(&baroHandle);
-    float localTemp = BMP390_GetTemperature(&baroHandle);
-
-    osMutexAcquire(sensorDataMutexHandle, osWaitForever);
-
-    g_accelData[0] = localAccel[0];
-    g_accelData[1] = localAccel[1];
-    g_accelData[2] = localAccel[2];
-
-    g_gyroData[0]  = localGyro[0];
-    g_gyroData[1]  = localGyro[1];
-    g_gyroData[2]  = localGyro[2];
-
-    g_baroAltitude    = localAlt;
-    g_baroPressure    = localPres;
-    g_baroTemperature = localTemp;
-
-    osMutexRelease(sensorDataMutexHandle);
-
-    osDelay(100);
-  }
-  /* USER CODE END StartReadSensors */
-}
 
 /**
   * @brief  Period elapsed callback in non blocking mode
