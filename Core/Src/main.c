@@ -22,9 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "Drivers/bmi088_gyro.h"
 #include "Drivers/bmi088_accel.h"
-#include "Drivers/bmp390.h"
 #include <stdarg.h>
 /* USER CODE END Includes */
 
@@ -35,14 +33,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define BMI088_ACCEL_CS_Pin   ACCEL_nCS_Pin
-#define BMI088_ACCEL_CS_Port  GPIOB
-
-#define BMI088_GYRO_CS_Pin    GYRO_nCS_Pin
-#define BMI088_GYRO_CS_Port   GPIOB
-
-#define BMP390_CS_Pin         BARO_nCS_Pin
-#define BMP390_CS_Port        GPIOB
 #define PRINT_BUFFER_SIZE     256
 /* USER CODE END PD */
 
@@ -59,14 +49,7 @@ SPI_HandleTypeDef hspi1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-float g_accelData[3]       = {0.0f, 0.0f, 0.0f};
-float g_baroAltitude       = 0.0f;
-float g_baroPressure       = 0.0f;
-float g_baroTemperature    = 0.0f;
 
-static BMI088_AccelHandle_t accelHandle;
-//static BMI088_GyroHandle_t  gyroHandle;
-//static BMP390_Handle_t      baroHandle;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -124,15 +107,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USB_Device_Init();
   /* USER CODE BEGIN 2 */
-  accelHandle.hspi = &hspi1;
-	accelHandle.csPort = BMI088_ACCEL_CS_Port;
-	accelHandle.csPin = BMI088_ACCEL_CS_Pin;
-	accelHandle.rangeConf = BMI088_ACC_24G_RANGE;
-	accelHandle.samplingConf = (BMI088_ACC_BWP_OSR4 | BMI088_ACC_ODR_200Hz);
 
-	HAL_Delay(5000);
-
-	BMI088_Accel_Init(&accelHandle);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -140,12 +115,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-    BMI088_Accel_Step(&accelHandle);
-    BMI088_Accel_Get(&accelHandle, g_accelData);
-    CDC_Transmit_Print("X Accel: %.2f\r\n", g_accelData[0]);
-    CDC_Transmit_Print("Y Accel: %.2f\r\n", g_accelData[1]);
-    CDC_Transmit_Print("Z Accel: %.2f\r\n", g_accelData[2]);
-    HAL_Delay(100);
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
