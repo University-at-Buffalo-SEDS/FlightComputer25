@@ -80,7 +80,7 @@ const osThreadAttr_t CANRecieveTest_attributes = {
 FDCAN_TxHeaderTypeDef TxHeader;
 FDCAN_RxHeaderTypeDef RxHeader;
 uint8_t TxData0[] = "Honey... the horse is hea\n";//{'H', 0x32, 0x54, 0x76, 0x98, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
-uint8_t TxData1[] = "I might swerve bend that corner woah oh oh                bruh         bruh           asldfkjaslkdfjasldkfjas;ldkfjasl;dfkdjasdl;fkjasdfl;dkj     bruh              bruh             ruh         bruh";//{0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55};
+uint8_t TxData1[64] = "I might swerve bend that corner woah oh oh";//{0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55};
 uint8_t TxData2[] = "I might pull up in the brr brr brrr";//{0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00};
 uint8_t RxData[64];
 /* USER CODE END PV */
@@ -273,7 +273,7 @@ static void MX_FDCAN2_Init(void)
   hfdcan2.Instance = FDCAN2;
   hfdcan2.Init.ClockDivider = FDCAN_CLOCK_DIV1;
   hfdcan2.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
-  hfdcan2.Init.Mode = FDCAN_MODE_INTERNAL_LOOPBACK;
+  hfdcan2.Init.Mode = FDCAN_MODE_NORMAL;
   hfdcan2.Init.AutoRetransmission = ENABLE;
   hfdcan2.Init.TransmitPause = ENABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
@@ -498,8 +498,8 @@ void StartCANTransmitTest(void *argument)
 	  for(int i = 0; i < 3; ++i) {
 		  HAL_FDCAN_StateTypeDef canState = hfdcan2.State;
 		  	  char buf[60];// to send
-		  	  int n = sprintf(buf, "Current CAN state: = 0x%02x\n", canState);
-		  	  CDC_Transmit_FS(buf, n);
+		  	  //int n = sprintf(buf, "Current CAN state: = 0x%02x\n", canState);
+		  	  //CDC_Transmit_FS(buf, n);
 		  	  	TxHeader.Identifier = 0x444;
 		  		TxHeader.IdType = FDCAN_STANDARD_ID;
 		  		TxHeader.TxFrameType = FDCAN_DATA_FRAME;
@@ -509,13 +509,8 @@ void StartCANTransmitTest(void *argument)
 		  		TxHeader.FDFormat = FDCAN_FD_CAN;
 		  		TxHeader.TxEventFifoControl = FDCAN_STORE_TX_EVENTS;
 		  		TxHeader.MessageMarker = 0x52;
-		  		HAL_StatusTypeDef err;
-		  		//if (i == 0) {
-			  //		err = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData0);
-		  	//	} else if (i == 1) {
-			  //		err = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData1);
-		  		//} else {
-			  		err = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData1);
+
+		  		HAL_StatusTypeDef err = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData1);
 		  		//}
 		  		if (err != HAL_OK)
 		  		{
