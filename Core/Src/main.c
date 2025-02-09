@@ -274,8 +274,8 @@ static void MX_FDCAN2_Init(void)
   hfdcan2.Init.ClockDivider = FDCAN_CLOCK_DIV1;
   hfdcan2.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
   hfdcan2.Init.Mode = FDCAN_MODE_NORMAL;
-  hfdcan2.Init.AutoRetransmission = ENABLE;
-  hfdcan2.Init.TransmitPause = ENABLE;
+  hfdcan2.Init.AutoRetransmission = DISABLE;
+  hfdcan2.Init.TransmitPause = DISABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
   hfdcan2.Init.NominalPrescaler = 1;
   hfdcan2.Init.NominalSyncJumpWidth = 16;
@@ -496,11 +496,9 @@ void StartCANTransmitTest(void *argument)
   for(;;)
   {
 	  for(int i = 0; i < 3; ++i) {
-		  HAL_FDCAN_StateTypeDef canState = hfdcan2.State;
-		  	  char buf[60];// to send
 		  	  //int n = sprintf(buf, "Current CAN state: = 0x%02x\n", canState);
 		  	  //CDC_Transmit_FS(buf, n);
-		  	  	TxHeader.Identifier = 0x444;
+		  	  	TxHeader.Identifier = 0x321;
 		  		TxHeader.IdType = FDCAN_STANDARD_ID;
 		  		TxHeader.TxFrameType = FDCAN_DATA_FRAME;
 		  		TxHeader.DataLength = FDCAN_DLC_BYTES_64;
@@ -508,7 +506,7 @@ void StartCANTransmitTest(void *argument)
 		  		TxHeader.BitRateSwitch = FDCAN_BRS_ON;
 		  		TxHeader.FDFormat = FDCAN_FD_CAN;
 		  		TxHeader.TxEventFifoControl = FDCAN_STORE_TX_EVENTS;
-		  		TxHeader.MessageMarker = 0x52;
+		  		TxHeader.MessageMarker = 0;
 
 		  		HAL_StatusTypeDef err = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData1);
 		  		//}
