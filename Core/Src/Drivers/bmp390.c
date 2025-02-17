@@ -190,4 +190,3 @@ static float BMP390_CompensateTemperature(BMP390_Handle_t *handle, uint32_t unco
 
     return comp_press;
 }
-
