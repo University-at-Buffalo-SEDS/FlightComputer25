@@ -50,7 +50,7 @@ void accel_init(accelHandle_t *accel) {
 
     (void)read_reg(accel, BMI088_ACC_REG_CHIP_ID);
     uint8_t chip_id = read_reg(accel, BMI088_ACC_REG_CHIP_ID);
-    if (chip_id != BMI088_ACC_REG_CHIP_ID) {
+    if (chip_id != BMI088_ACC_CHIP_ID) {
         CDC_Transmit_Print("BMI088 Accel not found! Read chip id: 0x%02X\r\n", chip_id);
     } else {
         CDC_Transmit_Print("BMI088 Accel found! Chip id: 0x%02X\r\n", chip_id);
@@ -75,14 +75,12 @@ void accel_init(accelHandle_t *accel) {
     	CDC_Transmit_Print("BMI088 Accel did not turn on!\r\n");
     }
 
+    HAL_Delay(50);
+
     chip_id = read_reg(accel, BMI088_ACC_REG_CHIP_ID);
 	CDC_Transmit_Print("DID ANOTHER READ OF THE ACC CHIP ID: 0x%02X\r\n", chip_id);
 
-   if (chip_id != BMI088_ACC_REG_CHIP_ID) {
-	   CDC_Transmit_Print("BMI088 Accel not found! Read chip id: 0x%02X\r\n", chip_id);
-   } else {
-	   CDC_Transmit_Print("BMI088 Accel found! Chip id: 0x%02X\r\n", chip_id);
-   }
+	HAL_Delay(50);
 
     accel_step(accel);
 }
