@@ -19,10 +19,10 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_device.h"
+#include "Drivers/bmi088.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "Drivers/bmi088_accel.h"
 #include <stdarg.h>
 /* USER CODE END Includes */
 
@@ -49,13 +49,7 @@ SPI_HandleTypeDef hspi1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-accelHandle_t accel = {
-	.hspi = &hspi1,
-	.csPort = ACCEL_nCS_GPIO_Port,
-	.csPin = ACCEL_nCS_Pin,
-	.rangeConf = BMI088_ACC_REG_CONF,
-	.samplingConf = (BMI088_ACC_BWP_OSR4 | BMI088_ACC_ODR_200Hz)
-};
+BMI088 imu;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -113,8 +107,10 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USB_Device_Init();
   /* USER CODE BEGIN 2 */
-  HAL_Delay(5000);
-  accel_init(&accel);
+  HAL_Delay(1000);
+  bmi088_init(&imu, &hspi1, ACCEL_nCS_GPIO_Port, GYRO_nCS_GPIO_Port, ACCEL_nCS_Pin, GYRO_nCS_Pin);
+  float *a;
+  float *g;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -122,9 +118,21 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	  accel_step(&accel);
-	  accel_print(&accel);
+	  accel_step(&imu);
+	  gyro_step(&imu);
+	  a = accel_get(&imu);
+	  g = gyro_get(&imu);
+
+	  float magnitude = sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
+	  CDC_Transmit_Print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
+	  CDC_Transmit_Print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
 	  HAL_Delay(100);
+
+//	  HAL_GPIO_WritePin(STATUS_LED_GPIO_Port, STATUS_LED_Pin, GPIO_PIN_SET);
+//	  HAL_Delay(500);
+//	  HAL_GPIO_WritePin(STATUS_LED_GPIO_Port, STATUS_LED_Pin, GPIO_PIN_RESET);
+//	  HAL_Delay(500);
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -242,7 +250,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
