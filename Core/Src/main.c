@@ -19,7 +19,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_device.h"
-#include "Drivers/bmi088.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -70,6 +69,7 @@ extern void CDC_Transmit_Print(const char *format, ...) {
 	va_start(args, format);
 	int n = vsprintf(buf, format, args);
 	CDC_Transmit_FS(buf, n);
+	va_end(args);
 }
 /* USER CODE END 0 */
 
@@ -119,22 +119,6 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	  accel_step(&imu);
-	  HAL_Delay(10);
-	  gyro_step(&imu);
-	  HAL_Delay(10);
-	  a = accel_get(&imu);
-	  g = gyro_get(&imu);
-
-	  float magnitude = sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
-	  CDC_Transmit_Print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
-	  CDC_Transmit_Print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
-	  HAL_Delay(1000);
-
-//	  HAL_GPIO_WritePin(STATUS_LED_GPIO_Port, STATUS_LED_Pin, GPIO_PIN_SET);
-//	  HAL_Delay(500);
-//	  HAL_GPIO_WritePin(STATUS_LED_GPIO_Port, STATUS_LED_Pin, GPIO_PIN_RESET);
-//	  HAL_Delay(500);
 
     /* USER CODE BEGIN 3 */
   }
@@ -259,7 +243,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 7;
   hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   if (HAL_SPI_Init(&hspi1) != HAL_OK)
   {
     Error_Handler();
