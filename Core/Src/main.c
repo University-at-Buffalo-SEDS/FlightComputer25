@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdarg.h>
+#include "Drivers/bmi088.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -118,6 +119,17 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  accel_step(&imu);
+	  	  HAL_Delay(10);
+	  	  gyro_step(&imu);
+	  	  HAL_Delay(10);
+	  	  a = accel_get(&imu);
+	  	  g = gyro_get(&imu);
+
+	  	  float magnitude = sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
+	  	  CDC_Transmit_Print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
+	  	  CDC_Transmit_Print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
+	  	  HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
