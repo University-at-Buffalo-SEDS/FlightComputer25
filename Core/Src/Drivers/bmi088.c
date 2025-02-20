@@ -6,10 +6,13 @@ void accel_read_reg(BMI088 *imu, uint8_t regAddr, uint8_t *data) {
 	uint8_t rx[3];
 
 	HAL_GPIO_WritePin(imu->csAccelPinBank, imu->accelCSPin, GPIO_PIN_RESET);
-	uint8_t status = (HAL_SPI_TransmitReceive(imu->hspi, tx, rx, 3, HAL_MAX_DELAY) == HAL_OK);
+	HAL_StatusTypeDef status = HAL_SPI_TransmitReceive(imu->hspi, tx, rx, 3, HAL_MAX_DELAY);
 	HAL_GPIO_WritePin(imu->csAccelPinBank, imu->accelCSPin, GPIO_PIN_SET);
-	if (status == 1) {
+	if (status == HAL_OK) {
+		CDC_Transmit_Print("Accel Read Reg Succesful\r\n");
 		*data = rx[2];
+	} else {
+		CDC_Transmit_Print("Error: 0x%02X\r\n", status);
 	}
 }
 
@@ -17,11 +20,14 @@ void gyro_read_reg(BMI088 *imu, uint8_t regAddr, uint8_t *data) {
 	uint8_t tx[2] = {regAddr | 0x80, 0x00};
 	uint8_t rx[2];
 
-	HAL_GPIO_WritePin(imu->csAccelPinBank, imu->accelCSPin, GPIO_PIN_RESET);
-	uint8_t status = (HAL_SPI_TransmitReceive(imu->hspi, tx, rx, 2, HAL_MAX_DELAY) == HAL_OK);
-	HAL_GPIO_WritePin(imu->csAccelPinBank, imu->accelCSPin, GPIO_PIN_SET);
-	if (status == 1) {
+	HAL_GPIO_WritePin(imu->csGyroPinBank, imu->gyroCSPin, GPIO_PIN_RESET);
+	HAL_StatusTypeDef status = HAL_SPI_TransmitReceive(imu->hspi, tx, rx, 2, HAL_MAX_DELAY);
+	HAL_GPIO_WritePin(imu->csGyroPinBank, imu->gyroCSPin, GPIO_PIN_SET);
+	if (status == HAL_OK) {
+		CDC_Transmit_Print("Gyro Read Reg Succesful\r\n");
 		*data = rx[1];
+	} else {
+		CDC_Transmit_Print("Error: 0x%02X\r\n", status);
 	}
 }
 
@@ -65,10 +71,20 @@ void bmi088_init(BMI088 *imu,
 	accel_write_reg(imu, BMI088_ACC_REG_SOFTRESET, 0xB6);
 	HAL_Delay(50);
 
+	uint8_t dummy;
+	accel_read_reg(imu, BMI088_ACC_REG_CHIP_ID, &dummy);
+	CDC_Transmit_Print("0x%02X\r\n", dummy);
+
 	uint8_t chipID;
 	accel_read_reg(imu, BMI088_ACC_REG_CHIP_ID, &chipID);
 	if (chipID != 0x1E) {
 		CDC_Transmit_Print("fuck 0x%02X\r\n", chipID);
+	}
+	HAL_Delay(10);
+
+	gyro_read_reg(imu, BMI088_GYR_REG_CHIP_ID, &chipID);
+	if (chipID != 0x0F) {
+		CDC_Transmit_Print("fuck fuck 0x%02X\r\n", chipID);
 	}
 	HAL_Delay(10);
 
@@ -89,12 +105,6 @@ void bmi088_init(BMI088 *imu,
 
 	gyro_write_reg(imu, BMI088_GYR_REG_SOFTRESET, 0xB6);
 	HAL_Delay(250);
-
-	gyro_read_reg(imu, BMI088_GYR_REG_CHIP_ID, &chipID);
-	if (chipID != 0x0F) {
-		CDC_Transmit_Print("fuck fuck 0x%02X\r\n", chipID);
-	}
-	HAL_Delay(10);
 
 	gyro_write_reg(imu, BMI088_GYR_REG_RANGE, BMI088_GYR_2000DPS_RANGE);
 	HAL_Delay(10);

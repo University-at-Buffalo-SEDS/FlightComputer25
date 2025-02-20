@@ -107,7 +107,8 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USB_Device_Init();
   /* USER CODE BEGIN 2 */
-  HAL_Delay(1000);
+  HAL_Delay(5000);
+  CDC_Transmit_Print("Start");
   bmi088_init(&imu, &hspi1, ACCEL_nCS_GPIO_Port, GYRO_nCS_GPIO_Port, ACCEL_nCS_Pin, GYRO_nCS_Pin);
   float *a;
   float *g;
@@ -119,14 +120,16 @@ int main(void)
   {
     /* USER CODE END WHILE */
 	  accel_step(&imu);
+	  HAL_Delay(10);
 	  gyro_step(&imu);
+	  HAL_Delay(10);
 	  a = accel_get(&imu);
 	  g = gyro_get(&imu);
 
 	  float magnitude = sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
 	  CDC_Transmit_Print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
 	  CDC_Transmit_Print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
-	  HAL_Delay(100);
+	  HAL_Delay(1000);
 
 //	  HAL_GPIO_WritePin(STATUS_LED_GPIO_Port, STATUS_LED_Pin, GPIO_PIN_SET);
 //	  HAL_Delay(500);
