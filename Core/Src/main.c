@@ -69,8 +69,9 @@ extern void CDC_Transmit_Print(const char *format, ...) {
 	va_list args;
 	va_start(args, format);
 	int n = vsprintf(buf, format, args);
-	CDC_Transmit_FS(buf, n);
+	uint8_t status = CDC_Transmit_FS(buf, n);
 	va_end(args);
+
 }
 /* USER CODE END 0 */
 

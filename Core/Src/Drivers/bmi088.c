@@ -68,17 +68,17 @@ void bmi088_init(BMI088 *imu,
 	HAL_GPIO_WritePin(imu->csAccelPinBank, imu->accelCSPin, GPIO_PIN_SET);
 	HAL_Delay(50);
 
+	//soft reset the accelerometer
 	accel_write_reg(imu, BMI088_ACC_REG_SOFTRESET, 0xB6);
 	HAL_Delay(50);
 
 	uint8_t dummy;
 	accel_read_reg(imu, BMI088_ACC_REG_CHIP_ID, &dummy);
-	CDC_Transmit_Print("0x%02X\r\n", dummy);
 
 	uint8_t chipID;
 	accel_read_reg(imu, BMI088_ACC_REG_CHIP_ID, &chipID);
 	if (chipID != 0x1E) {
-		CDC_Transmit_Print("fuck 0x%02X\r\n", chipID);
+		CDC_Transmit_Print("Chip ID Reg Address: 0x%02X\r\n", chipID);
 	}
 	HAL_Delay(10);
 
