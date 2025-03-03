@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "Drivers/bmi088_accel.h"
+#include "Drivers/bmp390.h"
 #include <stdarg.h>
 /* USER CODE END Includes */
 
@@ -47,6 +48,9 @@ FDCAN_HandleTypeDef hfdcan2;
 SPI_HandleTypeDef hspi1;
 
 UART_HandleTypeDef huart2;
+
+BMP390_Handle_t *bmp_handle;
+
 
 /* USER CODE BEGIN PV */
 
@@ -106,6 +110,11 @@ int main(void)
   MX_SPI1_Init();
   MX_USART2_UART_Init();
   MX_USB_Device_Init();
+
+  CDC_Transmit_Print("BEGGINING BMP TEST\n");
+  CDC_Transmit_Print("Initalizing BMP390 \n");
+  BMP390_Init(bmp_handle);
+
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -115,6 +124,10 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+
+	  BMP390_Step(bmp_handle);
+	  CDC_Transmit_Print((char)BMP390_GetAltitude(bmp_handle));
+
 
     /* USER CODE BEGIN 3 */
   }
