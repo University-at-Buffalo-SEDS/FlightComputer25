@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdarg.h>
 #include "Drivers/bmi088.h"
+#include "Drivers/bmp390.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,6 +51,7 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 BMI088 imu;
+BMP390 baro;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -110,6 +112,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_Delay(5000);
   CDC_Transmit_Print("Start");
+  HAL_GPIO_WritePin(ACCEL_nCS_GPIO_Port, ACCEL_nCS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GYRO_nCS_GPIO_Port, GYRO_nCS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(FLASH_nCS_GPIO_Port, FLASH_nCS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(BARO_nCS_GPIO_Port, BARO_nCS_Pin, GPIO_PIN_SET);
+
   bmi088_init(&imu, &hspi1, ACCEL_nCS_GPIO_Port, GYRO_nCS_GPIO_Port, ACCEL_nCS_Pin, GYRO_nCS_Pin);
   float *a;
   float *g;
@@ -120,16 +127,16 @@ int main(void)
   while (1)
   {
 	  accel_step(&imu);
-	  	  HAL_Delay(10);
-	  	  gyro_step(&imu);
-	  	  HAL_Delay(10);
-	  	  a = accel_get(&imu);
-	  	  g = gyro_get(&imu);
+	  HAL_Delay(10);
+	  gyro_step(&imu);
+	  HAL_Delay(10);
+	  a = accel_get(&imu);
+	  g = gyro_get(&imu);
 
-	  	  float magnitude = sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
-	  	  CDC_Transmit_Print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
-	  	  CDC_Transmit_Print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
-	  	  HAL_Delay(1000);
+	  float magnitude = sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
+	  CDC_Transmit_Print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
+	  CDC_Transmit_Print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
+	  HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

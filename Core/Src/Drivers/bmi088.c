@@ -1,6 +1,5 @@
 #include <Drivers/bmi088.h>
 
-
 void accel_read_reg(BMI088 *imu, uint8_t regAddr, uint8_t *data) {
 	uint8_t tx[3] = {regAddr | 0x80, 0x00, 0x00};
 	uint8_t rx[3];
@@ -9,7 +8,6 @@ void accel_read_reg(BMI088 *imu, uint8_t regAddr, uint8_t *data) {
 	HAL_StatusTypeDef status = HAL_SPI_TransmitReceive(imu->hspi, tx, rx, 3, HAL_MAX_DELAY);
 	HAL_GPIO_WritePin(imu->csAccelPinBank, imu->accelCSPin, GPIO_PIN_SET);
 	if (status == HAL_OK) {
-		CDC_Transmit_Print("Accel Read Reg Succesful\r\n");
 		*data = rx[2];
 	} else {
 		CDC_Transmit_Print("Error: 0x%02X\r\n", status);
@@ -24,7 +22,6 @@ void gyro_read_reg(BMI088 *imu, uint8_t regAddr, uint8_t *data) {
 	HAL_StatusTypeDef status = HAL_SPI_TransmitReceive(imu->hspi, tx, rx, 2, HAL_MAX_DELAY);
 	HAL_GPIO_WritePin(imu->csGyroPinBank, imu->gyroCSPin, GPIO_PIN_SET);
 	if (status == HAL_OK) {
-		CDC_Transmit_Print("Gyro Read Reg Succesful\r\n");
 		*data = rx[1];
 	} else {
 		CDC_Transmit_Print("Error: 0x%02X\r\n", status);
@@ -33,9 +30,9 @@ void gyro_read_reg(BMI088 *imu, uint8_t regAddr, uint8_t *data) {
 
 void accel_write_reg(BMI088 *imu, uint8_t regAddr, uint8_t data) {
 	uint8_t tx[2] = {regAddr, data};
-	HAL_GPIO_WritePin(imu->csGyroPinBank, imu->gyroCSPin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(imu->csAccelPinBank, imu->accelCSPin, GPIO_PIN_RESET);
 	HAL_SPI_Transmit(imu->hspi, tx, 2, HAL_MAX_DELAY);
-	HAL_GPIO_WritePin(imu->csGyroPinBank, imu->gyroCSPin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(imu->csAccelPinBank, imu->accelCSPin, GPIO_PIN_SET);
 }
 
 void gyro_write_reg(BMI088 *imu, uint8_t regAddr, uint8_t data) {
@@ -59,7 +56,8 @@ void bmi088_init(BMI088 *imu,
 	imu->accelCSPin = accelCSPin;
 	imu->gyroCSPin = gyroCSPin;
 
-	imu->accelConversion = 9.81f / 32768.0f * 2.0f * 1.5f; // data sheet page 27
+	float accel_multipilier = 1.0f/(1<<15) * (1<<(BMI088_ACC_24G_RANGE + 1)) * 1.5f;
+	imu->accelConversion = 9.80665f * accel_multipilier; // data sheet page 27
 	imu->gyroConversion = 0.01745329251f * 1000.0f / 16384.0f; // data sheet page 39 (rad/s)
 
 	// accel setup
@@ -73,7 +71,6 @@ void bmi088_init(BMI088 *imu,
 
 	uint8_t dummy;
 	accel_read_reg(imu, BMI088_ACC_REG_CHIP_ID, &dummy);
-	CDC_Transmit_Print("0x%02X\r\n", dummy);
 
 	uint8_t chipID;
 	accel_read_reg(imu, BMI088_ACC_REG_CHIP_ID, &chipID);
@@ -88,17 +85,42 @@ void bmi088_init(BMI088 *imu,
 	}
 	HAL_Delay(10);
 
-	accel_write_reg(imu, BMI088_GYR_REG_RANGE, BMI088_ACC_24G_RANGE);
+	accel_write_reg(imu, BMI088_ACC_REG_PWR_CONF, 0x00);
+	HAL_Delay(10);
+
+	accel_write_reg(imu, BMI088_ACC_REG_RANGE, BMI088_ACC_24G_RANGE);
 	HAL_Delay(10);
 
 	accel_write_reg(imu, BMI088_ACC_REG_CONF, BMI088_ACC_ODR_200Hz | BMI088_ACC_BWP_OSR4);
 	HAL_Delay(10);
 
-	accel_write_reg(imu, BMI088_ACC_REG_PWR_CONF, 0x00);
-	HAL_Delay(10);
 
 	accel_write_reg(imu, BMI088_ACC_REG_PWR_CTRL, 0x04);
 	HAL_Delay(10);
+
+	uint8_t range;
+	accel_read_reg(imu, BMI088_ACC_REG_RANGE, &range);
+	if ((range & 0x03) != BMI088_ACC_24G_RANGE) {
+		CDC_Transmit_Print("Wrong accel range set! 0x%02X\r\n", range);
+	} else {
+		CDC_Transmit_Print("Correct accel range set! 0x%02X\r\n", range);
+	}
+
+	uint8_t sampling;
+	accel_read_reg(imu, BMI088_ACC_REG_CONF, &sampling);
+	if (sampling != (BMI088_ACC_ODR_200Hz | BMI088_ACC_BWP_OSR4)) {
+		CDC_Transmit_Print("Wrong accel sampling set! 0x%02X\r\n", sampling);
+	} else {
+		CDC_Transmit_Print("Correct accel sampling set! 0x%02X\r\n", sampling);
+	}
+
+	uint8_t isOn;
+	accel_read_reg(imu, BMI088_ACC_REG_PWR_CTRL, &isOn);
+	if (isOn != 0x04) {
+		CDC_Transmit_Print("Accel not turned on! 0x%02X\r\n", isOn);
+	} else {
+		CDC_Transmit_Print("Accel turned on! 0x%02X\r\n", isOn);
+	}
 
 	// gyro setup
 	HAL_GPIO_WritePin(imu->csGyroPinBank, imu->gyroCSPin, GPIO_PIN_SET);
@@ -114,7 +136,7 @@ void bmi088_init(BMI088 *imu,
 }
 
 void accel_step(BMI088 *imu) {
-	uint8_t tx[8] = {(BMI088_ACC_REG_DATA | 0x80), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	uint8_t tx[8] = {(BMI088_ACC_REG_DATA | 0x80), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00	, 0x00};
 	uint8_t rx[8];
 
 	HAL_GPIO_WritePin(imu->csAccelPinBank, imu->accelCSPin, GPIO_PIN_RESET);
