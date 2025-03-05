@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 #include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -97,14 +98,7 @@ void StartCANTransmitTest(void *argument);
 void StartCANRecieveTest(void *argument);
 
 /* USER CODE BEGIN PFP */
-void CDC_Transmit_Print(const char * format, ...) {
-	char buf[PRINT_BUFFER_SIZE];
-	va_list args;
-	va_start(args, format);
-	int n = vsprintf(buf, format, args);
-	va_end(args);
-	CDC_Transmit_FS(buf, n);
-}
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -150,7 +144,6 @@ int main(void)
   MX_FDCAN2_Init();
   MX_SPI1_Init();
   MX_USART2_UART_Init();
-  MX_USB_Device_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_StatusTypeDef err = HAL_FDCAN_Start(&hfdcan2);
@@ -324,7 +317,7 @@ static void MX_SPI1_Init(void)
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.DataSize = SPI_DATASIZE_4BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
