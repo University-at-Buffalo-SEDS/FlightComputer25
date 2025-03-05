@@ -38,7 +38,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#define PRINT_BUFFER_SIZE 100
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -48,8 +48,41 @@ SPI_HandleTypeDef hspi1;
 
 UART_HandleTypeDef huart2;
 
+/* Definitions for FlightLogicTask */
+osThreadId_t FlightLogicTaskHandle;
+const osThreadAttr_t FlightLogicTask_attributes = {
+  .name = "FlightLogicTask",
+  .priority = (osPriority_t) osPriorityHigh,
+  .stack_size = 128 * 4
+};
+/* Definitions for ReadSensorsTask */
+osThreadId_t ReadSensorsTaskHandle;
+const osThreadAttr_t ReadSensorsTask_attributes = {
+  .name = "ReadSensorsTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 128 * 4
+};
+/* Definitions for CANTransmitTest */
+osThreadId_t CANTransmitTestHandle;
+const osThreadAttr_t CANTransmitTest_attributes = {
+  .name = "CANTransmitTest",
+  .priority = (osPriority_t) osPriorityLow,
+  .stack_size = 128 * 4
+};
+/* Definitions for CANRecieveTest */
+osThreadId_t CANRecieveTestHandle;
+const osThreadAttr_t CANRecieveTest_attributes = {
+  .name = "CANRecieveTest",
+  .priority = (osPriority_t) osPriorityLow,
+  .stack_size = 128 * 4
+};
 /* USER CODE BEGIN PV */
-
+FDCAN_TxHeaderTypeDef TxHeader;
+FDCAN_RxHeaderTypeDef RxHeader;
+uint8_t TxData0[] = "Honey... the horse is hea\n";//{'H', 0x32, 0x54, 0x76, 0x98, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
+uint8_t TxData1[64] = "I might swerve bend that corner woah oh oh";//{0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55};
+uint8_t TxData2[] = "I might pull up in the brr brr brrr";//{0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00};
+uint8_t RxData[64];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -58,8 +91,20 @@ static void MX_GPIO_Init(void);
 static void MX_FDCAN2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART2_UART_Init(void);
-/* USER CODE BEGIN PFP */
+void StartFlightLogic(void *argument);
+void StartReadSensors(void *argument);
+void StartCANTransmitTest(void *argument);
+void StartCANRecieveTest(void *argument);
 
+/* USER CODE BEGIN PFP */
+void CDC_Transmit_Print(const char * format, ...) {
+	char buf[PRINT_BUFFER_SIZE];
+	va_list args;
+	va_start(args, format);
+	int n = vsprintf(buf, format, args);
+	va_end(args);
+	CDC_Transmit_FS(buf, n);
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -108,16 +153,71 @@ int main(void)
   MX_USB_Device_Init();
   /* USER CODE BEGIN 2 */
 
+  HAL_StatusTypeDef err = HAL_FDCAN_Start(&hfdcan2);
+  if (err != HAL_OK) {
+	  char buf[60];// to send
+	  int n = sprintf(buf, "init err: = 0x%02x\n", err);
+	  CDC_Transmit_FS(buf, n);
+  }
+
   /* USER CODE END 2 */
+
+  /* Init scheduler */
+  osKernelInitialize();
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* creation of FlightLogicTask */
+  FlightLogicTaskHandle = osThreadNew(StartFlightLogic, NULL, &FlightLogicTask_attributes);
+
+  /* creation of ReadSensorsTask */
+  ReadSensorsTaskHandle = osThreadNew(StartReadSensors, NULL, &ReadSensorsTask_attributes);
+
+  /* creation of CANTransmitTest */
+  CANTransmitTestHandle = osThreadNew(StartCANTransmitTest, NULL, &CANTransmitTest_attributes);
+
+  /* creation of CANRecieveTest */
+  CANRecieveTestHandle = osThreadNew(StartCANRecieveTest, NULL, &CANRecieveTest_attributes);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
+
   /* USER CODE END 3 */
 }
 
@@ -179,21 +279,21 @@ static void MX_FDCAN2_Init(void)
   /* USER CODE END FDCAN2_Init 1 */
   hfdcan2.Instance = FDCAN2;
   hfdcan2.Init.ClockDivider = FDCAN_CLOCK_DIV1;
-  hfdcan2.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
+  hfdcan2.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
   hfdcan2.Init.Mode = FDCAN_MODE_NORMAL;
   hfdcan2.Init.AutoRetransmission = DISABLE;
   hfdcan2.Init.TransmitPause = DISABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
-  hfdcan2.Init.NominalPrescaler = 16;
-  hfdcan2.Init.NominalSyncJumpWidth = 1;
-  hfdcan2.Init.NominalTimeSeg1 = 1;
-  hfdcan2.Init.NominalTimeSeg2 = 1;
+  hfdcan2.Init.NominalPrescaler = 1;
+  hfdcan2.Init.NominalSyncJumpWidth = 16;
+  hfdcan2.Init.NominalTimeSeg1 = 63;
+  hfdcan2.Init.NominalTimeSeg2 = 16;
   hfdcan2.Init.DataPrescaler = 1;
-  hfdcan2.Init.DataSyncJumpWidth = 1;
-  hfdcan2.Init.DataTimeSeg1 = 1;
-  hfdcan2.Init.DataTimeSeg2 = 1;
-  hfdcan2.Init.StdFiltersNbr = 0;
-  hfdcan2.Init.ExtFiltersNbr = 0;
+  hfdcan2.Init.DataSyncJumpWidth = 4;
+  hfdcan2.Init.DataTimeSeg1 = 13;
+  hfdcan2.Init.DataTimeSeg2 = 2;
+  hfdcan2.Init.StdFiltersNbr = 1;
+  hfdcan2.Init.ExtFiltersNbr = 1;
   hfdcan2.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
   if (HAL_FDCAN_Init(&hfdcan2) != HAL_OK)
   {
@@ -350,6 +450,126 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartFlightLogic */
+/**
+  * @brief  Function implementing the FlightLogicTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartFlightLogic */
+void StartFlightLogic(void *argument)
+{
+  /* init code for USB_Device */
+  MX_USB_Device_Init();
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_StartReadSensors */
+/**
+* @brief Function implementing the ReadSensorsTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartReadSensors */
+void StartReadSensors(void *argument)
+{
+  /* USER CODE BEGIN StartReadSensors */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartReadSensors */
+}
+
+/* USER CODE BEGIN Header_StartCANTransmitTest */
+/**
+* @brief Function implementing the CANTransmitTest thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartCANTransmitTest */
+void StartCANTransmitTest(void *argument)
+{
+  /* USER CODE BEGIN StartCANTransmitTest */
+  /* Infinite loop */
+  for(;;)
+  {
+	  for(int i = 0; i < 3; ++i) {
+		  	  //int n = sprintf(buf, "Current CAN state: = 0x%02x\n", canState);
+		  	  //CDC_Transmit_FS(buf, n);
+		  	  	TxHeader.Identifier = 0x321;
+		  		TxHeader.IdType = FDCAN_STANDARD_ID;
+		  		TxHeader.TxFrameType = FDCAN_DATA_FRAME;
+		  		TxHeader.DataLength = FDCAN_DLC_BYTES_64;
+		  		TxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+		  		TxHeader.BitRateSwitch = FDCAN_BRS_ON;
+		  		TxHeader.FDFormat = FDCAN_FD_CAN;
+		  		TxHeader.TxEventFifoControl = FDCAN_STORE_TX_EVENTS;
+		  		TxHeader.MessageMarker = 0;
+
+		  		HAL_StatusTypeDef err = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData1);
+		  		//}
+		  		if (err != HAL_OK)
+		  		{
+
+		  			  CDC_Transmit_Print("Error while trying to add CAN message to fifo er = 0x%02x\n", err);
+		  			  CDC_Transmit_Print("fdcan2 error state = 0x%08x\n", hfdcan2.ErrorCode);
+		  		  //Error_Handler();
+		  		} else {
+		  			CDC_Transmit_Print("Successful transmission");
+		  		}
+
+		      osDelay(700);
+	  }
+
+  }
+  /* USER CODE END StartCANTransmitTest */
+}
+
+/* USER CODE BEGIN Header_StartCANRecieveTest */
+/**
+* @brief Function implementing the CANRecieveTest thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartCANRecieveTest */
+void StartCANRecieveTest(void *argument)
+{
+  /* USER CODE BEGIN StartCANRecieveTest */
+	//char printBuffer[60];
+	//int n = 0;
+  /* Infinite loop */
+  for(;;)
+  {
+	  if(HAL_FDCAN_GetRxFifoFillLevel(&hfdcan2, FDCAN_RX_FIFO0) > 0) {
+		  CDC_Transmit_Print("There are some messages in the buffer!\n"); //Data to send
+		  //Recieve data
+		  HAL_StatusTypeDef err = HAL_FDCAN_GetRxMessage(&hfdcan2, FDCAN_RX_FIFO0, &RxHeader, RxData);
+		  if (err != HAL_OK)
+		  {
+			 // n = sprintf(printBuffer, );
+			  CDC_Transmit_Print("Error recieving message: 0x%02x\n", err);
+		  } else {
+
+			  //n = sprintf(printBuffer, "Recieved message: %s", RxData);
+			  //CDC_Transmit_FS(printBuffer, n);
+			  CDC_Transmit_Print("Recieved message: %s\n", RxData);
+		  }
+	  } else {
+		  CDC_Transmit_Print("NO MESSAGES IN FIFO0\n"); //Data to send
+	  }
+    osDelay(50);
+  }
+  /* USER CODE END StartCANRecieveTest */
+}
 
 /**
   * @brief  Period elapsed callback in non blocking mode
