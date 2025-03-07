@@ -8,4 +8,7 @@ Using STM32CubeIDE, we need to convert these drivers from the old firmware:
 What we still need to implement:
 - [ ] CAN
 
+## Todo for BMP390 Driver:
+- [ ] Find conversion time
+
 ## How to use BMP390 Driver:
