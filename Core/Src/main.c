@@ -165,8 +165,7 @@ int main(void)
   }
 
   bmi088_init(&imu, &hspi1, ACCEL_nCS_GPIO_Port, GYRO_nCS_GPIO_Port, ACCEL_nCS_Pin, GYRO_nCS_Pin);
-  float *a;
-  float *g;
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -220,17 +219,17 @@ int main(void)
   while (1)
   {
 
-	  accel_step(&imu);
-	  HAL_Delay(10);
-	  gyro_step(&imu);
-	  HAL_Delay(10);
-	  a = accel_get(&imu);
-	  g = gyro_get(&imu);
-
-	  float magnitude = sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
-	  debug_print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
-	  debug_print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
-	  HAL_Delay(1000);
+//	  accel_step(&imu);
+//	  HAL_Delay(10);
+//	  gyro_step(&imu);
+//	  HAL_Delay(10);
+//	  a = accel_get(&imu);
+//	  g = gyro_get(&imu);
+//
+//	  float magnitude = sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
+//	  debug_print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
+//	  debug_print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
+//	  HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -507,7 +506,20 @@ void StartReadSensors(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  float *a;
+	  float *g;
+
+	  accel_step(&imu);
+	  HAL_Delay(10);
+	  gyro_step(&imu);
+	  HAL_Delay(10);
+	  a = accel_get(&imu);
+	  g = gyro_get(&imu);
+
+	  float magnitude = sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
+	  debug_print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
+	  debug_print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
+	  osDelay(1000);
   }
   /* USER CODE END StartReadSensors */
 }
