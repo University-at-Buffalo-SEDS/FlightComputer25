@@ -10,7 +10,7 @@ void accel_read_reg(BMI088 *imu, uint8_t regAddr, uint8_t *data) {
 	if (status == HAL_OK) {
 		*data = rx[2];
 	} else {
-		CDC_Transmit_Print("Error: 0x%02X\r\n", status);
+		debug_print("Error: 0x%02X\r\n", status);
 	}
 }
 
@@ -24,7 +24,7 @@ void gyro_read_reg(BMI088 *imu, uint8_t regAddr, uint8_t *data) {
 	if (status == HAL_OK) {
 		*data = rx[1];
 	} else {
-		CDC_Transmit_Print("Error: 0x%02X\r\n", status);
+		debug_print("Error: 0x%02X\r\n", status);
 	}
 }
 
@@ -76,13 +76,13 @@ void bmi088_init(BMI088 *imu,
 	uint8_t chipID;
 	accel_read_reg(imu, BMI088_ACC_REG_CHIP_ID, &chipID);
 	if (chipID != 0x1E) {
-		CDC_Transmit_Print("Chip ID Reg Address: 0x%02X\r\n", chipID);
+		debug_print("Chip ID Reg Address: 0x%02X\r\n", chipID);
 	}
 	HAL_Delay(10);
 
 	gyro_read_reg(imu, BMI088_GYR_REG_CHIP_ID, &chipID);
 	if (chipID != 0x0F) {
-		CDC_Transmit_Print("fuck fuck 0x%02X\r\n", chipID);
+		debug_print("fuck fuck 0x%02X\r\n", chipID);
 	}
 	HAL_Delay(10);
 
@@ -102,25 +102,25 @@ void bmi088_init(BMI088 *imu,
 	uint8_t range;
 	accel_read_reg(imu, BMI088_ACC_REG_RANGE, &range);
 	if ((range & 0x03) != BMI088_ACC_24G_RANGE) {
-		CDC_Transmit_Print("Wrong accel range set! 0x%02X\r\n", range);
+		debug_print("Wrong accel range set! 0x%02X\r\n", range);
 	} else {
-		CDC_Transmit_Print("Correct accel range set! 0x%02X\r\n", range);
+		debug_print("Correct accel range set! 0x%02X\r\n", range);
 	}
 
 	uint8_t sampling;
 	accel_read_reg(imu, BMI088_ACC_REG_CONF, &sampling);
 	if (sampling != (BMI088_ACC_ODR_200Hz | BMI088_ACC_BWP_OSR4)) {
-		CDC_Transmit_Print("Wrong accel sampling set! 0x%02X\r\n", sampling);
+		debug_print("Wrong accel sampling set! 0x%02X\r\n", sampling);
 	} else {
-		CDC_Transmit_Print("Correct accel sampling set! 0x%02X\r\n", sampling);
+		debug_print("Correct accel sampling set! 0x%02X\r\n", sampling);
 	}
 
 	uint8_t isOn;
 	accel_read_reg(imu, BMI088_ACC_REG_PWR_CTRL, &isOn);
 	if (isOn != 0x04) {
-		CDC_Transmit_Print("Accel not turned on! 0x%02X\r\n", isOn);
+		debug_print("Accel not turned on! 0x%02X\r\n", isOn);
 	} else {
-		CDC_Transmit_Print("Accel turned on! 0x%02X\r\n", isOn);
+		debug_print("Accel turned on! 0x%02X\r\n", isOn);
 	}
 
 	// gyro setup

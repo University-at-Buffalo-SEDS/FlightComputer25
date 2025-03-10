@@ -227,6 +227,10 @@ void KalmanFilter_step(KalmanFilter *kf, kfloat_t accel, kfloat_t altitude) {
     for (int i = 0; i < 3; i++) {
         kf->est.v[i] = kf->estp.v[i] + correction.v[i];
     }
+
+    // Optionally, add debugging output here.
+    // printf("Alt: %.2f, Accel: %.2f, Est Pos: %.2f, Est Rate: %.2f, Est Accel: %.2f\n",
+    //        altitude, accel, kf->est.v[0], kf->est.v[1], kf->est.v[2]);
 }
 
 kfloat_t KalmanFilter_get_pos(const KalmanFilter *kf) {
