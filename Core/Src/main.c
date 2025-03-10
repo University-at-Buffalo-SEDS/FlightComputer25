@@ -66,7 +66,7 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-extern void CDC_Transmit_Print(const char *format, ...) {
+extern void debug_print(const char *format, ...) {
 	char buf[PRINT_BUFFER_SIZE];
 	va_list args;
 	va_start(args, format);
@@ -112,7 +112,7 @@ int main(void)
   MX_USB_Device_Init();
   /* USER CODE BEGIN 2 */
   HAL_Delay(5000);
-  CDC_Transmit_Print("Start");
+  debug_print("Start");
   HAL_GPIO_WritePin(ACCEL_nCS_GPIO_Port, ACCEL_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GYRO_nCS_GPIO_Port, GYRO_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(FLASH_nCS_GPIO_Port, FLASH_nCS_Pin, GPIO_PIN_SET);
@@ -135,8 +135,8 @@ int main(void)
 	  g = gyro_get(&imu);
 
 	  float magnitude = sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
-	  CDC_Transmit_Print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
-	  CDC_Transmit_Print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
+	  debug_print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
+	  debug_print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
 	  HAL_Delay(1000);
     /* USER CODE END WHILE */
 
