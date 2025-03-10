@@ -24,6 +24,11 @@
 
 #define BMP390_SPI_READ_BIT     (0x80)
 
+//Time in ms
+#define WRITE_TIMEOUT		100
+#define READ_TIMEOUT		100
+#define TIMEOUT				1000
+
 typedef struct {
     uint16_t nvm_par_t1;
     uint16_t nvm_par_t2;
