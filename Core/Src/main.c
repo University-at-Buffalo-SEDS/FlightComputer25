@@ -543,11 +543,11 @@ void StartCANTransmitTest(void *argument)
 		  		if (err != HAL_OK)
 		  		{
 
-		  			  CDC_Transmit_Print("Error while trying to add CAN message to fifo er = 0x%02x\n", err);
-		  			  CDC_Transmit_Print("fdcan2 error state = 0x%08x\n", hfdcan2.ErrorCode);
+		  			  debug_print("Error while trying to add CAN message to fifo er = 0x%02x\n", err);
+		  			  debug_print("fdcan2 error state = 0x%08x\n", hfdcan2.ErrorCode);
 		  		  //Error_Handler();
 		  		} else {
-		  			CDC_Transmit_Print("Successful transmission");
+		  			debug_print("Successful transmission");
 		  		}
 
 		      osDelay(700);
@@ -573,21 +573,21 @@ void StartCANRecieveTest(void *argument)
   for(;;)
   {
 	  if(HAL_FDCAN_GetRxFifoFillLevel(&hfdcan2, FDCAN_RX_FIFO0) > 0) {
-		  CDC_Transmit_Print("There are some messages in the buffer!\n"); //Data to send
+		  debug_print("There are some messages in the buffer!\n"); //Data to send
 		  //Recieve data
 		  HAL_StatusTypeDef err = HAL_FDCAN_GetRxMessage(&hfdcan2, FDCAN_RX_FIFO0, &RxHeader, RxData);
 		  if (err != HAL_OK)
 		  {
 			 // n = sprintf(printBuffer, );
-			  CDC_Transmit_Print("Error recieving message: 0x%02x\n", err);
+			  debug_print("Error recieving message: 0x%02x\n", err);
 		  } else {
 
 			  //n = sprintf(printBuffer, "Recieved message: %s", RxData);
 			  //CDC_Transmit_FS(printBuffer, n);
-			  CDC_Transmit_Print("Recieved message: %s\n", RxData);
+			  debug_print("Recieved message: %s\n", RxData);
 		  }
 	  } else {
-		  CDC_Transmit_Print("NO MESSAGES IN FIFO0\n"); //Data to send
+		  debug_print("NO MESSAGES IN FIFO0\n"); //Data to send
 	  }
     osDelay(50);
   }
