@@ -1,5 +1,7 @@
 #include "Drivers/bmp390.h"
 
+extern void CDC_Transmit_Print(const char *format, ...);
+
 static inline void BMP390_Select(BMP390_Handle_t *handle) {
 	HAL_GPIO_WritePin(handle->csPort, handle->csPin, GPIO_PIN_RESET);
 }
@@ -14,23 +16,81 @@ static float BMP390_CompensatePressure(BMP390_Handle_t *handle, uint32_t uncomp_
 
 int BMP390_Init(BMP390_Handle_t *handle) {
 
+		if(BMP390_ReadReg(handle, BMP390_REG_CHIP_ID) != BMP390_CHIP_ID){
+			CDC_Transmit_Print("CHIP ID IS INCORRECT");
+			return 0;
+		}
+
+		BMP390_WriteReg(handle, BMP390_REG_CMD, BMP390_SOFT_RESET);
+		 	HAL_Delay(50);
+
+		handle->hspi = hspi;
+
+		handle->csPort = csPort;
+		handle->csPin = csPin;
+
+		/*
+		 * Question
+		 * In BMP390_Handle_t do we need to set members of CalibData to Nan?
+		 *
+		 */
+
+		handle->last_altitude = NaN;
+		handle->last_pressure = NaN;
+		handle->last_temperature = NaN;
+
+		//Enable Pressure & Temp Measurement, Set Power Mode
+		BMP390_WriteReg(handle, BMP390_REG_PWR_CTRL, BMP390_ENABLE_PRESSURE | BMP390_ENABLE_TEMP | BMP390_ENABLE_SENSOR);
+
+		if(BMP390_ReadReg(handle, BMP390_REG_PRW_CTRL) != (BMP390_ENABLE_PRESSURE | BMP390_ENABLE_TEMP | BMP390_ENABLE_SENSOR)){
+			CDC_Transmit_Print("BMP390_REG_PWR_CTRL NOT SET CORRECTLY");
+			return 0;
+		}
+
+		//Set Oversampling (OSR)
+
+		BMP390_WriteReg(handle, BMP390_REG_OSR, BMP390_OSR_x2 | BMP390_OSR_x32);
+
+		if(BMP390_ReadReg(handle, BMP390_REG_OSR) != (BMP390_OSR_x2 | BMP390_OSR_x32)){
+			CDC_Transmit_Print("BMP390_REG_OSR NOT SET CORRECTLY");
+			return 0;
+		}
+
+		//Set Output Data Rate (ODR)
+
+		BMP390_WriteReg(handle,BMP390_REG_ODR, BMP390_ODR_12p5_HZ);
+
+		if(BMP390_ReadReg(handle, BMP390_REG_ODR) != BMP390_ODR_12p5_HZ){
+			CDC_Transmit_Print("BMP390_REG_ODR NOT SET CORRECTLY");
+			return 0;
+		}
+
+
+		uint8_t raw_calib[21] = {0};
+		BMP390_ReadBuffer(handle, BMP390_REG_CAL, raw_calib, 21);
+		BMP390_LoadCalibrationData(handle, raw_calib);
+
 
     return 1;
 }
 
 void BMP390_Step(BMP390_Handle_t *handle) {
 
+
+
 }
 
 float BMP390_GetTemperature(BMP390_Handle_t *handle) {
+	return handle->last_temperature;
 
 }
 
 float BMP390_GetAltitude(BMP390_Handle_t *handle) {
-
+	return handle->last_altitude;
 }
 
 float BMP390_GetPressure(BMP390_Handle_t *handle) {
+	return handle->last_pressure;
 }
 
 /**
