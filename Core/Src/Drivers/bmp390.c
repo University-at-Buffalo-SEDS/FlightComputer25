@@ -115,14 +115,49 @@ void BMP390_ReadBuffer(BMP390_Handle_t *handle, uint8_t reg, uint8_t *data_buffe
 }
 
 static void BMP390_LoadCalibrationData(BMP390_Handle_t *handle, const uint8_t *raw_data) {
-
+	handle->raw_calib_data.nvm_par_t1 = (uint16_t)raw_data[1] << 8 | raw_data[0];
+	handle->calib_data.par_t1 = handle->raw_calib_data.nvm_par_t1 / powf(2, -8);
+	handle->raw_calib_data.nvm_par_t2 = (uint16_t)raw_data[3] << 8 | raw_data[2];
+	handle->calib_data.par_t2 = handle->raw_calib_data.nvm_par_t2 / powf(2, 30);
+	handle->raw_calib_data.nvm_par_t3 = raw_data[4];
+	handle->calib_data.par_t3 = handle->raw_calib_data.nvm_par_t3 / powf(2, 48);
+	handle->raw_calib_data.nvm_par_p1 = (int16_t)raw_data[6] << 8 | raw_data[5];
+	handle->calib_data.par_p1 = (handle->raw_calib_data.nvm_par_p1 - powf(2, 14)) / powf(2, 20);
+	handle->raw_calib_data.nvm_par_p2 = (int16_t)raw_data[8] << 8 | raw_data[7];
+	handle->calib_data.par_p2 = (handle->raw_calib_data.nvm_par_p2 - powf(2, 14)) / powf(2, 29);
+	handle->raw_calib_data.nvm_par_p3 = raw_data[9];
+	handle->calib_data.par_p3 = handle->raw_calib_data.nvm_par_p3 / powf(2, 32);
+	handle->raw_calib_data.nvm_par_p4 = raw_data[10];
+	handle->calib_data.par_p4 = handle->raw_calib_data.nvm_par_p4 / powf(2, 37);
+	handle->raw_calib_data.nvm_par_p5 = (uint16_t)raw_data[12] << 8 | raw_data[11];
+	handle->calib_data.par_p5 = handle->raw_calib_data.nvm_par_p5 / powf(2, -3);
+	handle->raw_calib_data.nvm_par_p6 = (uint16_t)raw_data[14] << 8 | raw_data[13];
+	handle->calib_data.par_p6 = handle->raw_calib_data.nvm_par_p6 / powf(2, 6);
+	handle->raw_calib_data.nvm_par_p7 = raw_data[15];
+	handle->calib_data.par_p7 = handle->raw_calib_data.nvm_par_p7 / powf(2, 8);
+	handle->raw_calib_data.nvm_par_p8 = raw_data[16];
+	handle->calib_data.par_p8 = handle->raw_calib_data.nvm_par_p8 / powf(2, 15);
+	handle->raw_calib_data.nvm_par_p9 = (int16_t)raw_data[18] << 8 | raw_data[17];
+	handle->calib_data.par_p9 = handle->raw_calib_data.nvm_par_p9 / powf(2, 48);
+	handle->raw_calib_data.nvm_par_p10 = raw_data[19];
+	handle->calib_data.par_p10 = handle->raw_calib_data.nvm_par_p10 / powf(2, 48);
+	handle->raw_calib_data.nvm_par_p11 = raw_data[20];
+	handle->calib_data.par_p11 = handle->raw_calib_data.nvm_par_p11 / powf(2, 65);
 }
 
-static float BMP390_CompensatePressure(BMP390_Handle_t *handle, uint32_t uncomp_temp) {
-
+static float BMP390_CompensatePressure(BMP390_Handle_t *handle, uint32_t uncomp_pressure) {
+	float partial_data1 = handle->calib_data.par_p6 * handle->calib_data.t_lin;
+	float partial_data2 = handle->calib_data.par_p7 * (handle->calib_data.t_lin * handle->calib_data.t_lin);
+	float partial_data3 = handle->calib_data.par_p8 * (handle->calib_data.t_lin * handle->calib_data.t_lin * handle->calib_data.t_lin);
+	float partial_out1 = handle->calib_data.par_p5 + partial_data1 + partial_data2 + partial_data3;
+	float partial_out2 = uncomp_pressure * (handle->calib_data.par_p1 + handle->calib_data.par_p2 * handle->calib_data.t_lin + handle->calib_data.par_p3 * pow(handle->calib_data.t_lin, 2) + handle->calib_data.par_p4 * pow(handle->calib_data.t_lin, 3));
+	return partial_out1 + partial_out2 + pow(uncomp_pressure, 2) * (handle->calib_data.par_p9 + handle->calib_data.par_p10 * handle->calib_data.t_lin) + pow(uncomp_pressure, 3) * handle->calib_data.par_p11;
 }
 
-static float BMP390_CompensateTemperature(BMP390_Handle_t *handle, uint32_t uncomp_pressure) {
-
+static float BMP390_CompensateTemperature(BMP390_Handle_t *handle, uint32_t uncomp_temp) {
+	float partial_data1 = (float)(uncomp_temp - handle->calib_data.par_t1);
+	float partial_data2 = partial_data1 * handle->calib_data.par_t2;
+	handle->calib_data.t_lin = partial_data2 + (partial_data1 * partial_data1) * handle->calib_data.par_t3;
+	return handle->calib_data.t_lin;
 }
 
