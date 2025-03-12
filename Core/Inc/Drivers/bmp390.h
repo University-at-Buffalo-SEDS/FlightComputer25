@@ -84,6 +84,6 @@ float BMP390_GetTemperature(BMP390_Handle_t *handle);
 
 uint8_t BMP390_ReadReg(BMP390_Handle_t *handle, uint8_t reg);
 void BMP390_WriteReg(BMP390_Handle_t *handle, uint8_t reg, uint8_t data);
-void BMP390_ReadBuffer(BMP390_Handle_t *handle, uint8_t reg, uint8_t *buf, uint8_t len);
+void BMP390_ReadBuffer(BMP390_Handle_t *handle, uint8_t reg, uint8_t *data_buffer, uint8_t len);
 
 #endif
