@@ -14,7 +14,7 @@ static void BMP390_LoadCalibrationData(BMP390_Handle_t *handle, const uint8_t *r
 static float BMP390_CompensateTemperature(BMP390_Handle_t *handle, uint32_t uncomp_temp);
 static float BMP390_CompensatePressure(BMP390_Handle_t *handle, uint32_t uncomp_pressure);
 
-int BMP390_Init(BMP390_Handle_t *handle) {
+int BMP390_Init(BMP390_Handle_t *handle, SPI_HandleTypeDef hspi) {
 
 		if(BMP390_ReadReg(handle, BMP390_REG_CHIP_ID) != BMP390_CHIP_ID){
 			CDC_Transmit_Print("CHIP ID IS INCORRECT");
@@ -24,10 +24,10 @@ int BMP390_Init(BMP390_Handle_t *handle) {
 		BMP390_WriteReg(handle, BMP390_REG_CMD, BMP390_SOFT_RESET);
 		 	HAL_Delay(50);
 
-		handle->hspi = hspi;
+		handle->hspi = &hspi;
 
-		handle->csPort = csPort;
-		handle->csPin = csPin;
+		handle->csPort = BMP390_CSPORT;
+		handle->csPin = BMP390_CSPIN;
 
 		/*
 		 * Question
@@ -35,14 +35,14 @@ int BMP390_Init(BMP390_Handle_t *handle) {
 		 *
 		 */
 
-		handle->last_altitude = NaN;
-		handle->last_pressure = NaN;
-		handle->last_temperature = NaN;
+		handle->last_altitude = NAN;
+		handle->last_pressure = NAN;
+		handle->last_temperature = NAN;
 
 		//Enable Pressure & Temp Measurement, Set Power Mode
 		BMP390_WriteReg(handle, BMP390_REG_PWR_CTRL, BMP390_ENABLE_PRESSURE | BMP390_ENABLE_TEMP | BMP390_ENABLE_SENSOR);
 
-		if(BMP390_ReadReg(handle, BMP390_REG_PRW_CTRL) != (BMP390_ENABLE_PRESSURE | BMP390_ENABLE_TEMP | BMP390_ENABLE_SENSOR)){
+		if(BMP390_ReadReg(handle, BMP390_REG_PWR_CTRL) != (BMP390_ENABLE_PRESSURE | BMP390_ENABLE_TEMP | BMP390_ENABLE_SENSOR)){
 			CDC_Transmit_Print("BMP390_REG_PWR_CTRL NOT SET CORRECTLY");
 			return 0;
 		}
@@ -75,9 +75,19 @@ int BMP390_Init(BMP390_Handle_t *handle) {
 }
 
 void BMP390_Step(BMP390_Handle_t *handle) {
+	uint8_t raw_data[6];
+	BMP390_ReadBuffer(handle, BMP390_REG_DATA, raw_data, sizeof(raw_data));
 
 
 
+	uint32_t uncomp_pressure = ((uint32_t)raw_data[2] << 16) | ((uint32_t)raw_data[1] << 8) | raw_data[0];
+	uint32_t uncomp_temp = ((uint32_t)raw_data[5] << 16) | ((uint32_t)raw_data[4] << 8) | raw_data[3];
+
+	handle->last_temperature = BMP390_CompensateTemperature(handle, uncomp_temp) * 100;
+	handle->last_pressure = BMP390_CompensatePressure(handle, uncomp_pressure);
+
+	// Calculate altitude using the pressure altitude formula
+	handle->last_altitude = 44330 * (1.0f - powf(handle->last_pressure / 101325, 0.1903f));
 }
 
 float BMP390_GetTemperature(BMP390_Handle_t *handle) {

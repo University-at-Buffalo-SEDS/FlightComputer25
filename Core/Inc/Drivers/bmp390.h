@@ -24,6 +24,11 @@
 
 #define BMP390_SPI_READ_BIT     (0x80)
 
+//For communicating with chip
+//THESE VALUES ARE FOR THE OLD BOARD FOR TESTING
+#define BMP390_CSPORT			GPIOB
+#define BMP390_CSPIN			GPIO_PIN_13
+
 //Time in ms
 #define WRITE_TIMEOUT		100
 #define READ_TIMEOUT		100
@@ -76,7 +81,7 @@ typedef struct {
 } BMP390_Handle_t;
 
 
-int BMP390_Init(BMP390_Handle_t *handle);
+int BMP390_Init(BMP390_Handle_t *handle, SPI_HandleTypeDef hspi);
 void BMP390_Step(BMP390_Handle_t *handle);
 float BMP390_GetAltitude(BMP390_Handle_t *handle);
 float BMP390_GetPressure(BMP390_Handle_t *handle);
