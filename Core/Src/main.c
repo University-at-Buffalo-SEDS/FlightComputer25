@@ -40,7 +40,6 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define PRINT_BUFFER_SIZE 100
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -65,19 +64,19 @@ const osThreadAttr_t ReadSensorsTask_attributes = {
   .stack_size = 128 * 4
 };
 /* Definitions for CANTransmitTest */
-osThreadId_t CANTransmitTestHandle;
-const osThreadAttr_t CANTransmitTest_attributes = {
-  .name = "CANTransmitTest",
-  .priority = (osPriority_t) osPriorityLow,
-  .stack_size = 128 * 4
-};
-/* Definitions for CANRecieveTest */
-osThreadId_t CANRecieveTestHandle;
-const osThreadAttr_t CANRecieveTest_attributes = {
-  .name = "CANRecieveTest",
-  .priority = (osPriority_t) osPriorityLow,
-  .stack_size = 128 * 4
-};
+//osThreadId_t CANTransmitTestHandle;
+//const osThreadAttr_t CANTransmitTest_attributes = {
+//  .name = "CANTransmitTest",
+//  .priority = (osPriority_t) osPriorityLow,
+//  .stack_size = 128 * 4
+//};
+///* Definitions for CANRecieveTest */
+//osThreadId_t CANRecieveTestHandle;
+//const osThreadAttr_t CANRecieveTest_attributes = {
+//  .name = "CANRecieveTest",
+//  .priority = (osPriority_t) osPriorityLow,
+//  .stack_size = 128 * 4
+//};
 /* USER CODE BEGIN PV */
 FDCAN_TxHeaderTypeDef TxHeader;
 FDCAN_RxHeaderTypeDef RxHeader;
@@ -113,7 +112,6 @@ extern void debug_print(const char *format, ...) {
 	int n = vsprintf(buf, format, args);
 	uint8_t status = CDC_Transmit_FS(buf, n);
 	va_end(args);
-
 }
 /* USER CODE END 0 */
 
@@ -150,19 +148,17 @@ int main(void)
   MX_SPI1_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  HAL_Delay(5000);
-  debug_print("Start");
   HAL_GPIO_WritePin(ACCEL_nCS_GPIO_Port, ACCEL_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GYRO_nCS_GPIO_Port, GYRO_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(FLASH_nCS_GPIO_Port, FLASH_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(BARO_nCS_GPIO_Port, BARO_nCS_Pin, GPIO_PIN_SET);
 
-  HAL_StatusTypeDef err = HAL_FDCAN_Start(&hfdcan2);
-  if (err != HAL_OK) {
-	  char buf[60];// to send
-	  int n = sprintf(buf, "init err: = 0x%02x\n", err);
-	  CDC_Transmit_FS(buf, n);
-  }
+//  HAL_StatusTypeDef err = HAL_FDCAN_Start(&hfdcan2);
+//  if (err != HAL_OK) {
+//	  char buf[60];// to send
+//	  int n = sprintf(buf, "init err: = 0x%02x\n", err);
+//	  CDC_Transmit_FS(buf, n);
+//  }
 
   bmi088_init(&imu, &hspi1, ACCEL_nCS_GPIO_Port, GYRO_nCS_GPIO_Port, ACCEL_nCS_Pin, GYRO_nCS_Pin);
 
@@ -195,10 +191,10 @@ int main(void)
   ReadSensorsTaskHandle = osThreadNew(StartReadSensors, NULL, &ReadSensorsTask_attributes);
 
   /* creation of CANTransmitTest */
-  CANTransmitTestHandle = osThreadNew(StartCANTransmitTest, NULL, &CANTransmitTest_attributes);
+//  CANTransmitTestHandle = osThreadNew(StartCANTransmitTest, NULL, &CANTransmitTest_attributes);
 
   /* creation of CANRecieveTest */
-  CANRecieveTestHandle = osThreadNew(StartCANRecieveTest, NULL, &CANRecieveTest_attributes);
+//  CANRecieveTestHandle = osThreadNew(StartCANRecieveTest, NULL, &CANRecieveTest_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -346,7 +342,7 @@ static void MX_SPI1_Init(void)
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
@@ -488,7 +484,8 @@ void StartFlightLogic(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  debug_print("hello!\r\n");
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -506,20 +503,7 @@ void StartReadSensors(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  float *a;
-	  float *g;
-
-	  accel_step(&imu);
-	  HAL_Delay(10);
-	  gyro_step(&imu);
-	  HAL_Delay(10);
-	  a = accel_get(&imu);
-	  g = gyro_get(&imu);
-
-	  float magnitude = sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
-	  debug_print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
-	  debug_print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
-	  osDelay(1000);
+	 osDelay(1);
   }
   /* USER CODE END StartReadSensors */
 }
