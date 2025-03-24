@@ -49,7 +49,7 @@ SPI_HandleTypeDef hspi1;
 
 UART_HandleTypeDef huart2;
 
-BMP390_Handle_t *bmp_handle;
+//BMP390_Handle_t *bmp_handle;
 
 
 /* USER CODE BEGIN PV */
@@ -113,7 +113,7 @@ int main(void)
 
   CDC_Transmit_Print("BEGGINING BMP TEST\n");
   CDC_Transmit_Print("Initalizing BMP390 \n");
-  BMP390_Init(bmp_handle, hspi1);
+  //BMP390_Init(bmp_handle, hspi1);
 
   /* USER CODE BEGIN 2 */
 
@@ -125,8 +125,10 @@ int main(void)
   {
     /* USER CODE END WHILE */
 
-	  BMP390_Step(bmp_handle);
-	  CDC_Transmit_Print("Current Altitude: %f \n", BMP390_GetAltitude(bmp_handle));
+	  //BMP390_Step(bmp_handle);
+	  //CDC_Transmit_Print("Current Altitude: %f \n", BMP390_GetAltitude(bmp_handle));
+
+	  CDC_Transmit_Print("Nothing \n");
 
 
     /* USER CODE BEGIN 3 */
