@@ -40,7 +40,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define PRINT_BUFFER_SIZE 100
+//#define PRINT_BUFFER_SIZE 100
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -85,6 +85,8 @@ uint8_t TxData0[] = "Honey... the horse is hea\n";//{'H', 0x32, 0x54, 0x76, 0x98
 uint8_t TxData1[64] = "I might swerve bend that corner woah oh oh";//{0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55};
 uint8_t TxData2[] = "I might pull up in the brr brr brrr";//{0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0xFF, 0x00};
 uint8_t RxData[64];
+char print_buffer[PRINT_BUFFER_SIZE];
+
 BMI088 imu;
 BMP390 baro;
 /* USER CODE END PV */
@@ -107,11 +109,10 @@ void StartCANRecieveTest(void *argument);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 extern void debug_print(const char *format, ...) {
-	char buf[PRINT_BUFFER_SIZE];
 	va_list args;
 	va_start(args, format);
-	int n = vsprintf(buf, format, args);
-	uint8_t status = CDC_Transmit_FS(buf, n);
+	int n = vsprintf(print_buffer, format, args);
+	CDC_Transmit_FS(print_buffer, n);
 	va_end(args);
 
 }
@@ -150,22 +151,32 @@ int main(void)
   MX_SPI1_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+  MX_USB_Device_Init();
+
   HAL_Delay(5000);
-  debug_print("Start");
+  debug_print("setting up gpio...\n");
+  HAL_Delay(300);
   HAL_GPIO_WritePin(ACCEL_nCS_GPIO_Port, ACCEL_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GYRO_nCS_GPIO_Port, GYRO_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(FLASH_nCS_GPIO_Port, FLASH_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(BARO_nCS_GPIO_Port, BARO_nCS_Pin, GPIO_PIN_SET);
-
+  debug_print("starting fdcan...\n");
+  HAL_Delay(300);
   HAL_StatusTypeDef err = HAL_FDCAN_Start(&hfdcan2);
+  HAL_Delay(300);
+  debug_print("this comes after fdcan start\n");
+  HAL_Delay(300);
   if (err != HAL_OK) {
 	  char buf[60];// to send
 	  int n = sprintf(buf, "init err: = 0x%02x\n", err);
 	  CDC_Transmit_FS(buf, n);
   }
+  HAL_Delay(300);
+  debug_print("Bmi init...\n");
 
   bmi088_init(&imu, &hspi1, ACCEL_nCS_GPIO_Port, GYRO_nCS_GPIO_Port, ACCEL_nCS_Pin, GYRO_nCS_Pin);
-
+  HAL_Delay(300);
+  debug_print("START\n\n");
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -346,7 +357,7 @@ static void MX_SPI1_Init(void)
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
@@ -480,15 +491,14 @@ static void MX_GPIO_Init(void)
   * @retval None
   */
 /* USER CODE END Header_StartFlightLogic */
-void StartFlightLogic(void *argument)
+__weak void StartFlightLogic(void *argument)
 {
   /* init code for USB_Device */
-  MX_USB_Device_Init();
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -506,6 +516,7 @@ void StartReadSensors(void *argument)
   /* Infinite loop */
   for(;;)
   {
+	  debug_print("read sensors\n");
 	  float *a;
 	  float *g;
 
@@ -517,8 +528,12 @@ void StartReadSensors(void *argument)
 	  g = gyro_get(&imu);
 
 	  float magnitude = sqrtf(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
-	  debug_print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\r\n", a[0], a[1], a[2], magnitude);
-	  debug_print("Gyro: %.2f, %.2f, %.2f \r\n", g[0], g[1], g[2]);
+	  debug_print("Accel: %.2f, %.2f, %.2f (%.2f m/s^2)\n", a[0], a[1], a[2], magnitude);
+	  //HAL_Delay(300);
+	  //possible issue with hal_delaying inside a freertos task????
+	  debug_print("Gyro: %.2f, %.2f, %.2f \n", g[0], g[1], g[2]);
+	  HAL_Delay(300);
+	  debug_print("done with read sensors...\n");
 	  osDelay(1000);
   }
   /* USER CODE END StartReadSensors */
@@ -537,33 +552,34 @@ void StartCANTransmitTest(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  for(int i = 0; i < 3; ++i) {
-		  	  //int n = sprintf(buf, "Current CAN state: = 0x%02x\n", canState);
-		  	  //CDC_Transmit_FS(buf, n);
-		  	  	TxHeader.Identifier = 0x321;
-		  		TxHeader.IdType = FDCAN_STANDARD_ID;
-		  		TxHeader.TxFrameType = FDCAN_DATA_FRAME;
-		  		TxHeader.DataLength = FDCAN_DLC_BYTES_64;
-		  		TxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-		  		TxHeader.BitRateSwitch = FDCAN_BRS_ON;
-		  		TxHeader.FDFormat = FDCAN_FD_CAN;
-		  		TxHeader.TxEventFifoControl = FDCAN_STORE_TX_EVENTS;
-		  		TxHeader.MessageMarker = 0;
+	  	debug_print("Attempting can transmit\n");
+		//debug_print("Current CAN state: = 0x%02x\n", hfdcan2.State);
+		HAL_Delay(300);
+		TxHeader.Identifier = 0x321;
+		TxHeader.IdType = FDCAN_STANDARD_ID;
+		TxHeader.TxFrameType = FDCAN_DATA_FRAME;
+		TxHeader.DataLength = FDCAN_DLC_BYTES_64;
+		TxHeader.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+		TxHeader.BitRateSwitch = FDCAN_BRS_ON;
+		TxHeader.FDFormat = FDCAN_FD_CAN;
+		TxHeader.TxEventFifoControl = FDCAN_STORE_TX_EVENTS;
+		TxHeader.MessageMarker = 0;
 
-		  		HAL_StatusTypeDef err = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData1);
-		  		//}
-		  		if (err != HAL_OK)
-		  		{
+		HAL_StatusTypeDef err = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &TxHeader, TxData1);
+		//}
+		if (err != HAL_OK)
+		{
 
-		  			  debug_print("Error while trying to add CAN message to fifo er = 0x%02x\n", err);
-		  			  debug_print("fdcan2 error state = 0x%08x\n", hfdcan2.ErrorCode);
-		  		  //Error_Handler();
-		  		} else {
-		  			debug_print("Successful transmission");
-		  		}
+			  debug_print("Error while trying to add CAN message to fifo er = 0x%02x\n", err);
+			  HAL_Delay(300);
+			  debug_print("fdcan2 error state = 0x%08x\n", hfdcan2.ErrorCode);
+		  //Error_Handler();
+		} else {
+			debug_print("Successful transmission");
+		}
 
-		      osDelay(700);
-	  }
+		osDelay(1000);
+
 
   }
   /* USER CODE END StartCANTransmitTest */
@@ -584,6 +600,7 @@ void StartCANRecieveTest(void *argument)
   /* Infinite loop */
   for(;;)
   {
+	  debug_print("can recieve\n");
 	  if(HAL_FDCAN_GetRxFifoFillLevel(&hfdcan2, FDCAN_RX_FIFO0) > 0) {
 		  debug_print("There are some messages in the buffer!\n"); //Data to send
 		  //Recieve data
@@ -601,7 +618,7 @@ void StartCANRecieveTest(void *argument)
 	  } else {
 		  debug_print("NO MESSAGES IN FIFO0\n"); //Data to send
 	  }
-    osDelay(50);
+    osDelay(500);
   }
   /* USER CODE END StartCANRecieveTest */
 }
