@@ -1,0 +1,5 @@
+../Core/Src/util/matrix.c:3:6:matrix_multiply	40	static
+../Core/Src/util/matrix.c:16:6:matrix_add	32	static
+../Core/Src/util/matrix.c:24:6:matrix_subtract	32	static
+../Core/Src/util/matrix.c:32:6:matrix_transpose	32	static
+../Core/Src/util/matrix.c:42:10:matrix_norm_sq	32	static

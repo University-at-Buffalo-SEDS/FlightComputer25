@@ -1,0 +1,10 @@
+../Core/Inc/util/ring_buffer.h:19:22:ring_buffer_available	16	static
+../Core/Inc/util/ring_buffer.h:23:22:ring_buffer_used	16	static
+../Core/Src/log.c:46:6:log_setup	8	static
+../Core/Src/log.c:60:6:log_start	8	static
+../Core/Src/log.c:67:6:log_stop	4	static
+../Core/Src/log.c:72:6:log_add	24	static
+../Core/Src/log.c:87:6:log_erase	24	static
+../Core/Src/log.c:104:6:log_print_all	9064	static
+../Core/Src/log.c:147:6:log_step	336	static
+../Core/Src/log.c:191:13:log_print_msg	16	static

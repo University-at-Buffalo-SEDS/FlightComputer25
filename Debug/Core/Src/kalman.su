@@ -1,0 +1,3 @@
+../Core/Src/kalman.c:9:13:calculate_gain	272	static
+../Core/Src/kalman.c:93:6:KalmanFilter_init	40	static
+../Core/Src/kalman.c:129:6:KalmanFilter_step	64	static

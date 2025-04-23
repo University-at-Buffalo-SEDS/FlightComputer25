@@ -1,0 +1,6 @@
+../Core/Src/util/ring_buffer.c:4:22:wrapping_add	1
+../Core/Src/util/ring_buffer.c:8:6:ring_buffer_init	1
+../Core/Src/util/ring_buffer.c:17:6:ring_buffer_push	4
+../Core/Src/util/ring_buffer.c:34:6:ring_buffer_pop	2
+../Core/Src/util/ring_buffer.c:44:6:ring_buffer_push_array	7
+../Core/Src/util/ring_buffer.c:76:6:ring_buffer_pop_array	3

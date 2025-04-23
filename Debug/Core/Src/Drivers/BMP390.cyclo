@@ -1,0 +1,11 @@
+../Core/Src/Drivers/BMP390.c:12:13:bmp_read_reg	2
+../Core/Src/Drivers/BMP390.c:30:13:bmp_write_reg	2
+../Core/Src/Drivers/BMP390.c:45:13:bmp_read_buf	4
+../Core/Src/Drivers/BMP390.c:74:13:bmp_parse_calib	1
+../Core/Src/Drivers/BMP390.c:118:14:bmp_compensate_temperature	1
+../Core/Src/Drivers/BMP390.c:125:14:bmp_compensate_pressure	1
+../Core/Src/Drivers/BMP390.c:149:6:bmp_init	15
+../Core/Src/Drivers/BMP390.c:238:6:baro_step	7
+../Core/Src/Drivers/BMP390.c:272:7:baro_get_altitude	1
+../Core/Src/Drivers/BMP390.c:276:9:baro_get_temp	1
+../Core/Src/Drivers/BMP390.c:280:7:baro_get_pressure	1

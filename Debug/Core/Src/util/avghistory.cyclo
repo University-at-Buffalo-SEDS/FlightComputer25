@@ -1,0 +1,4 @@
+../Core/Src/util/avghistory.c:5:6:AvgHistory_Init	2
+../Core/Src/util/avghistory.c:14:6:AvgHistory_Add	3
+../Core/Src/util/avghistory.c:30:5:AvgHistory_Full	1
+../Core/Src/util/avghistory.c:35:7:AvgHistory_OldAvg	1

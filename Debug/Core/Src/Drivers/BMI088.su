@@ -1,0 +1,9 @@
+../Core/Src/Drivers/BMI088.c:3:6:accel_read_reg	40	static
+../Core/Src/Drivers/BMI088.c:17:6:gyro_read_reg	40	static
+../Core/Src/Drivers/BMI088.c:31:6:accel_write_reg	24	static
+../Core/Src/Drivers/BMI088.c:38:6:gyro_write_reg	24	static
+../Core/Src/Drivers/BMI088.c:45:6:bmi088_init	40	static
+../Core/Src/Drivers/BMI088.c:139:6:accel_step	48	static
+../Core/Src/Drivers/BMI088.c:156:6:gyro_step	48	static
+../Core/Src/Drivers/BMI088.c:173:8:accel_get	16	static
+../Core/Src/Drivers/BMI088.c:177:8:gyro_get	16	static
