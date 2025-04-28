@@ -70,8 +70,8 @@ all: main-build
 main-build: FlightComputer25.elf secondary-outputs
 
 # Tool invocations
-FlightComputer25.elf FlightComputer25.map: $(OBJS) $(USER_OBJS) C:\Users\parth\STM32CubeIDE\workspace_1.17.0\FlightComputer25\STM32G491CETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "FlightComputer25.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\parth\STM32CubeIDE\workspace_1.17.0\FlightComputer25\STM32G491CETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="FlightComputer25.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+FlightComputer25.elf FlightComputer25.map: $(OBJS) $(USER_OBJS) /Users/origamiyoda/Documents/GitHub/FlightComputer25/STM32G491CETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "FlightComputer25.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/Users/origamiyoda/Documents/GitHub/FlightComputer25/STM32G491CETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="FlightComputer25.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

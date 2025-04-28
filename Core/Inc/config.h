@@ -21,7 +21,7 @@
 
 // Flight phase
 typedef enum {
-	Startup,
+	Startup = 0,
 	Idle,
 	Launched,
 	DescendingAfterSeparation,

@@ -212,11 +212,5 @@ static void log_print_msg(const LogMessage *msg)
     debug_print("%.2f,", msg->pressure);
     // Print temperature.
     debug_print("%d,", msg->temp);
-    // Print apogee.
-    debug_print("%lu,", (unsigned long) msg->apogee);
-    // Print launched flag as an integer (0 or 1).
-    debug_print("%d,", (int) msg->launched);
-    // Print landed_time.
-    debug_print("%lu\r\n", (unsigned long) msg->landed_time);
 }
 

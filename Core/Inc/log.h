@@ -5,29 +5,25 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// Example LogMessage structure.
-// Adjust fields and types as needed.
+#pragma pack(push,1)
 typedef struct {
-    uint32_t time_ms;
-    FlightPhase phase;
-    float kf_pos;
-    float kf_vel;
-    float kf_accel;
-    float altitude;
-    float accel_x;
-    float accel_y;
-    float accel_z;
-    float gyro_x;
-    float gyro_y;
-    float gyro_z;
-    float pressure;
-    int16_t temp;
-    uint32_t apogee;
-    bool launched;
-    uint32_t landed_time;
+    uint32_t     time_ms;    //  4
+    FlightPhase  phase;      //  4
+    float        kf_pos;     //  4
+    float        kf_vel;     //  4
+    float        kf_accel;   //  4
+    float        altitude;   //  4
+    float        accel_x;    //  4
+    float        accel_y;    //  4
+    float        accel_z;    //  4
+    float        gyro_x;     //  4
+    float        gyro_y;     //  4
+    float        gyro_z;     //  4
+    float        pressure;   //  4
+    int16_t      temp;       //  2
 } LogMessage;
+#pragma pack(pop)
 
-// The following functions constitute our logging interface.
 void log_step(void);
 void log_setup(void);
 void log_start(void);

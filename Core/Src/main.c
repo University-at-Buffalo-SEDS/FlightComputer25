@@ -54,25 +54,24 @@ FDCAN_HandleTypeDef hfdcan2;
 
 SPI_HandleTypeDef hspi1;
 
-
-/* Definitions for printTask */
-osThreadId_t printTaskHandle;
-const osThreadAttr_t printTask_attributes = {
-  .name = "printTask",
+/* Definitions for sendMessage */
+osThreadId_t sendMessageHandle;
+const osThreadAttr_t sendMessage_attributes = {
+  .name = "sendMessage",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 512 * 4
-};
-/* Definitions for readSensors */
-osThreadId_t readSensorsHandle;
-const osThreadAttr_t readSensors_attributes = {
-  .name = "readSensors",
-  .priority = (osPriority_t) osPriorityLow,
   .stack_size = 512 * 4
 };
 /* Definitions for deploymentTask */
 osThreadId_t deploymentTaskHandle;
 const osThreadAttr_t deploymentTask_attributes = {
   .name = "deploymentTask",
+  .priority = (osPriority_t) osPriorityAboveNormal,
+  .stack_size = 512 * 4
+};
+/* Definitions for readSensors */
+osThreadId_t readSensorsHandle;
+const osThreadAttr_t readSensors_attributes = {
+  .name = "readSensors",
   .priority = (osPriority_t) osPriorityHigh,
   .stack_size = 512 * 4
 };
@@ -81,7 +80,12 @@ osThreadId_t logTaskHandle;
 const osThreadAttr_t logTask_attributes = {
   .name = "logTask",
   .priority = (osPriority_t) osPriorityBelowNormal,
-  .stack_size = 128 * 4
+  .stack_size = 512 * 4
+};
+/* Definitions for messageQueue */
+osMessageQueueId_t messageQueueHandle;
+const osMessageQueueAttr_t messageQueue_attributes = {
+  .name = "messageQueue"
 };
 /* Definitions for sensorData */
 osMutexId_t sensorDataHandle;
@@ -110,11 +114,11 @@ PyroChannel pyros[CHANNEL_COUNT] = {
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_SPI1_Init(void);
 static void MX_FDCAN2_Init(void);
-void StartPrintTask(void *argument);
-void StartReadSensors(void *argument);
+static void MX_SPI1_Init(void);
+void StartSendMessage(void *argument);
 void StartDeployment(void *argument);
+void StartReadSensors(void *argument);
 void StartLog(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -180,28 +184,26 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_SPI1_Init();
   MX_FDCAN2_Init();
-  MX_USB_Device_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
   HAL_GPIO_WritePin(ACCEL_nCS_GPIO_Port, ACCEL_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GYRO_nCS_GPIO_Port, GYRO_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(FLASH_nCS_GPIO_Port, FLASH_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(BARO_nCS_GPIO_Port, BARO_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(Backlight_GPIO_Port, Backlight_Pin, GPIO_PIN_SET);
-  HAL_Delay(50);
 
   bmi088_init(&imu, &hspi1, ACCEL_nCS_GPIO_Port, GYRO_nCS_GPIO_Port, ACCEL_nCS_Pin, GYRO_nCS_Pin);
   bmp_init(&baro, &hspi1, BARO_nCS_GPIO_Port, BARO_nCS_Pin);
   KalmanFilter_init(&kf, KALMAN_PERIOD, ALTITUDE_SIGMA, ACCELERATION_SIGMA, MODEL_SIGMA);
   Flash_Setup(&hspi1, FLASH_nCS_GPIO_Port, FLASH_nCS_Pin);
 
-  HAL_Delay(2000);
-  debug_print("Starting print\r\n");
-  log_print_all();
-  debug_print("End print\r\n");
-  log_setup();
-  log_start();
+//  HAL_Delay(2000);
+//  debug_print("Starting print\r\n");
+//  log_print_all();
+//  debug_print("End print\r\n");
+//  log_setup();
+//  log_start();
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -222,19 +224,23 @@ int main(void)
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
+  /* Create the queue(s) */
+  /* creation of messageQueue */
+  messageQueueHandle = osMessageQueueNew (16, sizeof(LogMessage), &messageQueue_attributes);
+
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of printTask */
-  printTaskHandle = osThreadNew(StartPrintTask, NULL, &printTask_attributes);
-
-  /* creation of readSensors */
-  readSensorsHandle = osThreadNew(StartReadSensors, NULL, &readSensors_attributes);
+  /* creation of sendMessage */
+  sendMessageHandle = osThreadNew(StartSendMessage, NULL, &sendMessage_attributes);
 
   /* creation of deploymentTask */
   deploymentTaskHandle = osThreadNew(StartDeployment, NULL, &deploymentTask_attributes);
+
+  /* creation of readSensors */
+  readSensorsHandle = osThreadNew(StartReadSensors, NULL, &readSensors_attributes);
 
   /* creation of logTask */
   logTaskHandle = osThreadNew(StartLog, NULL, &logTask_attributes);
@@ -274,7 +280,7 @@ void SystemClock_Config(void)
 
   /** Configure the main internal regulator output voltage
   */
-  HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1);
+  HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1_BOOST);
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
@@ -283,7 +289,13 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV4;
+  RCC_OscInitStruct.PLL.PLLN = 85;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -293,12 +305,12 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
   {
     Error_Handler();
   }
@@ -387,7 +399,6 @@ static void MX_SPI1_Init(void)
 
 }
 
-
 /**
   * @brief GPIO Initialization Function
   * @param None
@@ -436,53 +447,251 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartPrintTask */
+/* USER CODE BEGIN Header_StartSendMessage */
 /**
-  * @brief  Function implementing the printTask thread.
+  * @brief  Function implementing the sendMessage thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartPrintTask */
-void StartPrintTask(void *argument)
+/* USER CODE END Header_StartSendMessage */
+void StartSendMessage(void *argument)
 {
-  /* init code for USB_Device */
-  MX_USB_Device_Init();
-  /* USER CODE BEGIN 5 */
-    float localAccel[3];
-    float localGyro[3];
-    float localPressure;
-    int16_t localTemperature;
-    float localBaroAltitude;
-    uint32_t last_run_time = HAL_GetTick();
-    /* Infinite loop */
-    for(;;) {
+    MX_USB_Device_Init();
+
+    // Prepare a CAN-FD Tx header
+    FDCAN_TxHeaderTypeDef txHeader = {
+        .Identifier = 0x222,
+	    .IdType = FDCAN_STANDARD_ID,
+	    .TxFrameType = FDCAN_DATA_FRAME,
+	    .DataLength = FDCAN_DLC_BYTES_16,
+	    .ErrorStateIndicator = FDCAN_ESI_ACTIVE,
+	    .BitRateSwitch = FDCAN_BRS_ON,
+	    .FDFormat = FDCAN_FD_CAN,
+	    .TxEventFifoControl = FDCAN_STORE_TX_EVENTS,
+	    .MessageMarker = 0
+    };
+
+    uint8_t txBuf[64];
+
+    for (;;)
+    {
+        LogMessage msg;
+        // wait forever for one LogMessage to arrive
+        if (osMessageQueueGet(messageQueueHandle, &msg, NULL, osWaitForever) == osOK)
+        {
+            // zero the buffer & copy in the packed struct
+            memset(txBuf, 0, sizeof(txBuf));
+            memcpy(txBuf, &msg, sizeof(msg));
+
+            if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &txHeader, txBuf) != HAL_OK)
+            {
+                debug_print("CAN Tx Error\r\n");
+            }
+        }
+        // small yield so lower-priority tasks still run
+        osDelay(10);
+    }
+}
+
+/* USER CODE BEGIN Header_StartDeployment */
+/**
+* @brief Function implementing the deploymentTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartDeployment */
+void StartDeployment(void *argument)
+{
+  /* USER CODE BEGIN StartDeployment */
+	MX_USB_Device_Init();
+
+	FlightPhase phase = Startup;
+	uint32_t land_time = 0;
+	bool send_now = true;
+
+	// === trimmed-mean baseline buffers ===
+	#define BASELINE_SAMPLES 10
+	static float  grav_buf[BASELINE_SAMPLES];
+	static int    grav_idx   = 0, grav_cnt   = 0;
+	static bool   grav_ready = false;
+	static float  grav_zero  = 0.0f;
+
+	static float  alt_buf[BASELINE_SAMPLES];
+	static int    alt_idx    = 0, alt_cnt    = 0;
+	static bool   alt_ready  = false;
+	static float  alt_zero   = 0.0f;
+
+	// for fixed 100 ms period
+	uint32_t next_wake = osKernelGetTickCount() + 100;
+	  /* Infinite loop */
+	for(;;) {
+		uint32_t now = HAL_GetTick();
+        float currentAccel[3];
+        float currentGyro[3];
+        float raw_altitude;
+        float current_pressure;
+        int16_t current_temp;
+
+        // grab sensors
         if (osMutexAcquire(sensorDataHandle, osWaitForever) == osOK) {
-            memcpy(localAccel, accelData, sizeof(accelData));
-            memcpy(localGyro, gyroData, sizeof(gyroData));
-            localPressure = pressure;
-            localBaroAltitude = baro_altitude;
-            localTemperature = temp;
+            memcpy(currentAccel, accelData, sizeof(accelData));
+            memcpy(currentGyro, gyroData, sizeof(gyroData));
+            raw_altitude = baro_altitude;
+            current_pressure = pressure;
+            current_temp = temp;
             osMutexRelease(sensorDataHandle);
-
-            uint32_t current_tick = HAL_GetTick();
-            debug_print("--- Tick: %lu ---\r\n", current_tick);
-            debug_print("BMI088 Accel: X: %.2f Y: %.2f Z: %.2f g\r\n", localAccel[0], localAccel[1], localAccel[2]);
-            debug_print("BMI088 Gyro:  X: %.2f Y: %.2f Z: %.2f dps\r\n", localGyro[0], localGyro[1], localGyro[2]);
-            debug_print("BMP390 Alt:   %.2f m\r\n", localBaroAltitude);
-            debug_print("BMP390 Pres:  %.0f Pa\r\n", localPressure);
-            debug_print("BMP390 Temp:  %.2f C\r\n", (float)localTemperature / 100.0f);
-            debug_print("\r\n");
-
-            HAL_GPIO_TogglePin(STATUS_LED_GPIO_Port, STATUS_LED_Pin);
-
         } else {
-            debug_print("PrintTask: Failed to acquire mutex!\r\n");
+            osDelayUntil(next_wake);
+            next_wake += 100;
+            continue;
         }
 
-        osDelayUntil(last_run_time + 500);
-        last_run_time = HAL_GetTick();
-    }
-  /* USER CODE END 5 */
+        // compute accel magnitude
+        float accel_mag = sqrtf(
+            currentAccel[0]*currentAccel[0] +
+            currentAccel[1]*currentAccel[1] +
+            currentAccel[2]*currentAccel[2]
+        );
+
+        // —— update trimmed-mean baselines ——
+        if (!grav_ready) {
+            grav_buf[grav_idx++] = accel_mag;
+            if (grav_idx >= BASELINE_SAMPLES) grav_idx = 0;
+            if (++grav_cnt >= BASELINE_SAMPLES) {
+                // compute trimmed mean
+                float sum = 0, mn = grav_buf[0], mx = grav_buf[0];
+                for (int i = 0; i < BASELINE_SAMPLES; i++) {
+                    float v = grav_buf[i];
+                    sum += v;
+                    if (v < mn) mn = v;
+                    if (v > mx) mx = v;
+                }
+                grav_zero  = (sum - mn - mx) / (BASELINE_SAMPLES - 2);
+                grav_ready = true;
+            }
+        }
+        if (!alt_ready) {
+            alt_buf[alt_idx++] = raw_altitude;
+            if (alt_idx >= BASELINE_SAMPLES) alt_idx = 0;
+            if (++alt_cnt >= BASELINE_SAMPLES) {
+                float sum = 0, mn = alt_buf[0], mx = alt_buf[0];
+                for (int i = 0; i < BASELINE_SAMPLES; i++) {
+                    float v = alt_buf[i];
+                    sum += v;
+                    if (v < mn) mn = v;
+                    if (v > mx) mx = v;
+                }
+                alt_zero  = (sum - mn - mx) / (BASELINE_SAMPLES - 2);
+                alt_ready = true;
+            }
+        }
+
+        // don’t proceed until both baselines are locked in
+        if (!grav_ready || !alt_ready) {
+            osDelayUntil(next_wake);
+            next_wake += 100;
+            continue;
+        }
+
+        // once baselines ready, transition to Idle (first time only)
+        if (phase == Startup) {
+            phase = Idle;
+        }
+
+        // subtract baselines to get net accel & relative alt
+        float net_accel = accel_mag - grav_zero;
+        float rel_alt   = raw_altitude - alt_zero;
+
+        channel_update();
+
+        // check pyro channels
+        bool any_channel_firing = false;
+        for (int i = 0; i < CHANNEL_COUNT; i++) {
+            if (pyros[i].firing) { any_channel_firing = true; break; }
+        }
+
+        // feed Kalman
+        if (isfinite(net_accel) && isfinite(rel_alt) && !any_channel_firing) {
+            KalmanFilter_step(&kf, net_accel, rel_alt);
+        }
+
+        // flight‐phase state machine
+        switch (phase) {
+            case Idle:
+                if (kf.est[1] > LAUNCH_VELOCITY && kf.est[2] > LAUNCH_ACCEL) {
+                    phase         = Launched;
+//                    log_start();
+                    send_now      = true;
+                }
+                break;
+            case Launched:
+                if (kf.est[1] < 0) {
+                    channel_fire(SEPARATION_INDEX);
+                    phase        = DescendingAfterSeparation;
+                    send_now     = true;
+                }
+                break;
+            case DescendingAfterSeparation:
+                if (kf.est[0] < REEFING_ALTITUDE &&
+                    (now - pyros[SEPARATION_INDEX].fire_time) > 3000) {
+                    channel_fire(REEFING_INDEX);
+                    phase    = DescendingAfterReefing;
+                    send_now = true;
+                }
+                break;
+            case DescendingAfterReefing:
+                if (kf.est[0] < LANDED_ALTITUDE &&
+                    fabsf(kf.est[1]) < LANDED_VELOCITY &&
+                    fabsf(kf.est[2]) < LANDED_ACCEL) {
+                    if (land_time == 0) {
+                        land_time = now ? now : 1;
+                    }
+                    else if ((now - land_time) >= LANDED_TIME) {
+                        phase    = Landed;
+//                        log_stop();
+                        send_now = true;
+                    }
+                } else {
+                    land_time = 0;
+                }
+                break;
+            default:
+                break;
+        }
+
+        HAL_GPIO_TogglePin(STATUS_LED_GPIO_Port, STATUS_LED_Pin);
+
+        LogMessage data;
+        data.time_ms = now;
+        data.phase = phase;
+        data.accel_x = currentAccel[0];
+        data.accel_y = currentAccel[1];
+        data.accel_z = currentAccel[2];
+        data.gyro_x = currentGyro[0];
+        data.gyro_y = currentGyro[1];
+        data.gyro_z = currentGyro[2];
+        data.altitude = raw_altitude;
+        data.pressure = current_pressure;
+        data.temp = current_temp;
+        data.kf_pos = kf.est[0];
+        data.kf_vel = kf.est[1];
+        data.kf_accel = kf.est[2];
+
+        log_add(&data);
+
+        // throttle amount of data being sent
+        if (send_now) {
+            osMessageQueuePut(messageQueueHandle, &data, 0, 0);
+            send_now = false;
+        } else {
+            send_now = true;
+        }
+
+        // wait until next 100 ms tick
+        osDelayUntil(next_wake);
+        next_wake += 100;
+	}
+  /* USER CODE END StartDeployment */
 }
 
 /* USER CODE BEGIN Header_StartReadSensors */
@@ -496,180 +705,36 @@ void StartReadSensors(void *argument)
 {
   /* USER CODE BEGIN StartReadSensors */
   /* Infinite loop */
-  for(;;)
-  {
-	 accel_step(&imu);
-	 gyro_step(&imu);
-	 baro_step(&baro);
+	for(;;) {
+         accel_step(&imu);
+         gyro_step(&imu);
+		 baro_step(&baro);
 
-	 float *accel = accel_get(&imu);
-	 float *gyro = gyro_get(&imu);
-	 float local_pressure = baro_get_pressure(&baro);
-	 float local_altitude = baro_get_altitude(&baro);
-	 int16_t local_temp = baro_get_temp(&baro);
+		 float *accel = accel_get(&imu);
+		 float *gyro = gyro_get(&imu);
+		 float local_pressure = baro_get_pressure(&baro);
+		 float local_altitude = baro_get_altitude(&baro);
+		 int16_t local_temp = baro_get_temp(&baro);
 
-	 osMutexAcquire(sensorDataHandle, osWaitForever);
+		 osMutexAcquire(sensorDataHandle, osWaitForever);
 
-	 accelData[0] = accel[0];
-	 accelData[1] = accel[1];
-	 accelData[2] = accel[2];
+		 accelData[0] = accel[0];
+		 accelData[1] = accel[1];
+		 accelData[2] = accel[2];
 
-	 gyroData[0] = gyro[0];
-	 gyroData[1] = gyro[1];
-	 gyroData[2] = gyro[2];
+		 gyroData[0] = gyro[0];
+		 gyroData[1] = gyro[1];
+		 gyroData[2] = gyro[2];
 
-	 pressure = local_pressure;
-	 baro_altitude = local_altitude;
-	 temp = local_temp;
+		 pressure = local_pressure;
+		 baro_altitude = local_altitude;
+		 temp = local_temp;
 
-	 osMutexRelease(sensorDataHandle);
+		 osMutexRelease(sensorDataHandle);
 
-	 osDelay(100);
+		 osDelay(100);
   }
   /* USER CODE END StartReadSensors */
-}
-
-/* USER CODE BEGIN Header_StartDeployment */
-/**
-* @brief Function implementing the deploymentTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartDeployment */
-void StartDeployment(void *argument)
-{
-  /* USER CODE BEGIN StartDeployment */
-	FlightPhase phase = Startup;
-
-	// Running average for acceleration due to gravity
-	static AvgHistory gravity_est_state;
-	AvgHistory_Init(&gravity_est_state);
-
-	// Running average for ground level at startup
-	static AvgHistory ground_level_est_state;
-	AvgHistory_Init(&ground_level_est_state);
-
-	float apogee = 0;
-	uint32_t land_time = 0;
-	bool launched_state = false;
-
-  /* Infinite loop */
-  for(;;)
-  {
-	  uint32_t now = HAL_GetTick();
-	  float currentAccel[3];
-	  float currentGyro[3];
-
-	  osMutexAcquire(sensorDataHandle, osWaitForever);
-	  currentAccel[0] = accelData[0];
-	  currentAccel[1] = accelData[1];
-	  currentAccel[2] = accelData[2];
-
-	  currentGyro[0] = gyroData[0];
-	  currentGyro[1] = gyroData[1];
-	  currentGyro[2] = gyroData[2];
-
-	  float current_pressure = pressure;
-	  float raw_altitude = baro_altitude;
-	  int16_t current_temp = temp;
-	  osMutexRelease(sensorDataHandle);
-
-	  float accel_mag = sqrtf(currentAccel[0] * currentAccel[0] + currentAccel[1] * currentAccel[1] + currentAccel[2] * currentAccel[2]);
-
-	  if (phase < Launched) {
-		  AvgHistory_Add(&gravity_est_state, accel_mag);
-		  AvgHistory_Add(&ground_level_est_state, raw_altitude);
-	  }
-
-	  if (phase == Startup) {
-		  uint8_t ground_level_full = AvgHistory_Full(&ground_level_est_state);
-		  uint8_t gravity_full = AvgHistory_Full(&gravity_est_state);
-		  if (!ground_level_full || !gravity_full) {
-			  // return?
-			  continue;
-		  }
-		  phase = Idle;
-	  }
-
-	  accel_mag -= AvgHistory_OldAvg(&gravity_est_state);
-	  float curr_alt = raw_altitude - AvgHistory_OldAvg(&ground_level_est_state);
-
-	  channel_update();
-
-	  bool any_channel_firing = false;
-	  for (uint8_t i = 0; i < CHANNEL_COUNT; i++) {
-		  if (pyros[i].firing) {
-			  any_channel_firing = true;
-			  break;
-		  }
-	  }
-
-	  if (!any_channel_firing) {
-		  KalmanFilter_step(&kf, accel_mag, curr_alt);
-	  }
-
-	  if (phase == Idle) {
-		  if (kf.est[1] > LAUNCH_VELOCITY && kf.est[2] > LAUNCH_ACCEL) {
-			  phase = Launched;
-			  log_start();
-			  launched_state = true;
-		  }
-	  } else if (phase == Launched) {
-		  if (kf.est[1] < 0) {
-			  apogee = kf.est[0];
-			  channel_fire(SEPARATION_INDEX);
-			  phase = DescendingAfterSeparation;
-		  }
-	  } else if (phase == DescendingAfterSeparation) {
-
-		  if (kf.est[0] < REEFING_ALTITUDE && (now - pyros[SEPARATION_INDEX].fire_time) > 3000) {
-			  channel_fire(REEFING_INDEX);
-			  phase = DescendingAfterReefing;
-		  }
-	  } else if (phase == DescendingAfterReefing) {
-		  if (kf.est[0] < LANDED_ALTITUDE && abs(kf.est[1]) < LANDED_VELOCITY && abs(kf.est[2]) < LANDED_ACCEL) {
-			  if (land_time == 0) {
-				  land_time = now;
-				  if (land_time == 0) {
-					  land_time = 1;
-				  }
-			  } else if ((now - land_time) >= LANDED_TIME) {
-				  phase = Landed;
-				  log_stop();
-			  }
-		  } else {
-			  land_time = 0;
-		  }
-	  }
-	  LogMessage data;
-	  data.time_ms = now;
-	  data.phase = phase;
-	  data.kf_pos = kf.est[0];
-	  data.kf_vel = kf.est[1];
-	  data.kf_accel = kf.est[2];
-	  data.altitude = raw_altitude;
-	  data.accel_x = currentAccel[0];
-	  data.accel_y = currentAccel[1];
-	  data.accel_z = currentAccel[2];
-	  data.gyro_x = currentGyro[0];
-	  data.gyro_y = currentGyro[0];
-	  data.gyro_z = currentGyro[0];
-	  data.pressure = current_pressure;
-	  data.temp = current_temp;
-	  data.apogee = apogee;
-	  data.launched = launched_state;
-	  data.landed_time = land_time;
-
-	  log_add(&data);
-	  debug_print("Phase: %d\r\n",phase);
-	  debug_print("kalman pos: %.2f\r\n",kf.est[0]);
-	  debug_print("kalman vel: %.2f\r\n",kf.est[1]);
-	  debug_print("kalman accel: %.2f\r\n",kf.est[2]);
-
-    osDelay(100);
-
-  }
-  /* USER CODE END StartDeployment */
 }
 
 /* USER CODE BEGIN Header_StartLog */
