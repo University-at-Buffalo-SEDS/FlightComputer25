@@ -5,6 +5,6 @@
 ../Core/Src/log.c:67:6:log_stop	4	static
 ../Core/Src/log.c:72:6:log_add	24	static
 ../Core/Src/log.c:87:6:log_erase	24	static
-../Core/Src/log.c:104:6:log_print_all	6872	static
+../Core/Src/log.c:104:6:log_print_all	7520	static
 ../Core/Src/log.c:147:6:log_step	320	static
 ../Core/Src/log.c:191:13:log_print_msg	16	static

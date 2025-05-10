@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#pragma pack(push,1)
 typedef struct {
     uint32_t     time_ms;    //  4
     FlightPhase  phase;      //  4
@@ -22,7 +21,6 @@ typedef struct {
     float        pressure;   //  4
     int16_t      temp;       //  2
 } LogMessage;
-#pragma pack(pop)
 
 void log_step(void);
 void log_setup(void);

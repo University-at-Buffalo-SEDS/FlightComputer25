@@ -25,8 +25,8 @@
 /* USER CODE BEGIN Includes */
 #include "Drivers/BMI088.h"
 #include "Drivers/BMP390.h"
-#include "Drivers/flash.h"
-#include "util/avghistory.h"
+//#include "Drivers/flash.h"
+//#include "util/avghistory.h"
 #include "kalman.h"
 #include "config.h"
 #include "log.h"
@@ -65,21 +65,21 @@ const osThreadAttr_t sendMessage_attributes = {
 osThreadId_t deploymentTaskHandle;
 const osThreadAttr_t deploymentTask_attributes = {
   .name = "deploymentTask",
-  .priority = (osPriority_t) osPriorityAboveNormal,
+  .priority = (osPriority_t) osPriorityHigh,
   .stack_size = 512 * 4
 };
 /* Definitions for readSensors */
 osThreadId_t readSensorsHandle;
 const osThreadAttr_t readSensors_attributes = {
   .name = "readSensors",
-  .priority = (osPriority_t) osPriorityHigh,
+  .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 512 * 4
 };
 /* Definitions for logTask */
 osThreadId_t logTaskHandle;
 const osThreadAttr_t logTask_attributes = {
   .name = "logTask",
-  .priority = (osPriority_t) osPriorityBelowNormal,
+  .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 512 * 4
 };
 /* Definitions for messageQueue */
@@ -128,12 +128,18 @@ void StartLog(void *argument);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 extern void debug_print(const char *format, ...) {
-	char buf[PRINT_BUFFER_SIZE];
-	va_list args;
-	va_start(args, format);
-	int n = vsnprintf(buf, sizeof(buf), format, args);
-	CDC_Transmit_FS(buf, n);
-	va_end(args);
+    char buf[PRINT_BUFFER_SIZE];
+    va_list  args;
+    va_start(args, format);
+    int len = vsnprintf(buf, sizeof(buf), format, args);
+    va_end(args);
+    if (len <= 0) {
+        return;
+    }
+    if (len > (PRINT_BUFFER_SIZE - 1)) {
+        len = PRINT_BUFFER_SIZE - 1;
+    }
+    CDC_Transmit_FS((uint8_t*)buf, (uint16_t)len);
 }
 
 void channel_fire(uint8_t index) {
@@ -186,17 +192,20 @@ int main(void)
   MX_GPIO_Init();
   MX_FDCAN2_Init();
   MX_SPI1_Init();
+  MX_USB_Device_Init();
   /* USER CODE BEGIN 2 */
   HAL_GPIO_WritePin(ACCEL_nCS_GPIO_Port, ACCEL_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GYRO_nCS_GPIO_Port, GYRO_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(FLASH_nCS_GPIO_Port, FLASH_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(BARO_nCS_GPIO_Port, BARO_nCS_Pin, GPIO_PIN_SET);
+  HAL_Delay(4000);
   HAL_GPIO_WritePin(Backlight_GPIO_Port, Backlight_Pin, GPIO_PIN_SET);
 
   bmi088_init(&imu, &hspi1, ACCEL_nCS_GPIO_Port, GYRO_nCS_GPIO_Port, ACCEL_nCS_Pin, GYRO_nCS_Pin);
   bmp_init(&baro, &hspi1, BARO_nCS_GPIO_Port, BARO_nCS_Pin);
   KalmanFilter_init(&kf, KALMAN_PERIOD, ALTITUDE_SIGMA, ACCELERATION_SIGMA, MODEL_SIGMA);
-  Flash_Setup(&hspi1, FLASH_nCS_GPIO_Port, FLASH_nCS_Pin);
+  HAL_FDCAN_Start(&hfdcan2);
+//  Flash_Setup(&hspi1, FLASH_nCS_GPIO_Port, FLASH_nCS_Pin);
 
 //  HAL_Delay(2000);
 //  debug_print("Starting print\r\n");
@@ -243,7 +252,7 @@ int main(void)
   readSensorsHandle = osThreadNew(StartReadSensors, NULL, &readSensors_attributes);
 
   /* creation of logTask */
-  logTaskHandle = osThreadNew(StartLog, NULL, &logTask_attributes);
+//  logTaskHandle = osThreadNew(StartLog, NULL, &logTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -280,7 +289,7 @@ void SystemClock_Config(void)
 
   /** Configure the main internal regulator output voltage
   */
-  HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1_BOOST);
+  HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1);
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
@@ -289,13 +298,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV4;
-  RCC_OscInitStruct.PLL.PLLN = 85;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
-  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -305,12 +308,12 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
     Error_Handler();
   }
@@ -333,21 +336,21 @@ static void MX_FDCAN2_Init(void)
   /* USER CODE END FDCAN2_Init 1 */
   hfdcan2.Instance = FDCAN2;
   hfdcan2.Init.ClockDivider = FDCAN_CLOCK_DIV1;
-  hfdcan2.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
+  hfdcan2.Init.FrameFormat = FDCAN_FRAME_FD_BRS;
   hfdcan2.Init.Mode = FDCAN_MODE_NORMAL;
   hfdcan2.Init.AutoRetransmission = DISABLE;
   hfdcan2.Init.TransmitPause = DISABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
-  hfdcan2.Init.NominalPrescaler = 16;
-  hfdcan2.Init.NominalSyncJumpWidth = 1;
-  hfdcan2.Init.NominalTimeSeg1 = 1;
-  hfdcan2.Init.NominalTimeSeg2 = 1;
+  hfdcan2.Init.NominalPrescaler = 1;
+  hfdcan2.Init.NominalSyncJumpWidth = 16;
+  hfdcan2.Init.NominalTimeSeg1 = 63;
+  hfdcan2.Init.NominalTimeSeg2 = 16;
   hfdcan2.Init.DataPrescaler = 1;
-  hfdcan2.Init.DataSyncJumpWidth = 1;
-  hfdcan2.Init.DataTimeSeg1 = 1;
-  hfdcan2.Init.DataTimeSeg2 = 1;
-  hfdcan2.Init.StdFiltersNbr = 0;
-  hfdcan2.Init.ExtFiltersNbr = 0;
+  hfdcan2.Init.DataSyncJumpWidth = 4;
+  hfdcan2.Init.DataTimeSeg1 = 13;
+  hfdcan2.Init.DataTimeSeg2 = 2;
+  hfdcan2.Init.StdFiltersNbr = 1;
+  hfdcan2.Init.ExtFiltersNbr = 1;
   hfdcan2.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
   if (HAL_FDCAN_Init(&hfdcan2) != HAL_OK)
   {
@@ -456,19 +459,17 @@ static void MX_GPIO_Init(void)
 /* USER CODE END Header_StartSendMessage */
 void StartSendMessage(void *argument)
 {
-    MX_USB_Device_Init();
-
     // Prepare a CAN-FD Tx header
     FDCAN_TxHeaderTypeDef txHeader = {
-        .Identifier = 0x222,
-	    .IdType = FDCAN_STANDARD_ID,
-	    .TxFrameType = FDCAN_DATA_FRAME,
-	    .DataLength = FDCAN_DLC_BYTES_16,
-	    .ErrorStateIndicator = FDCAN_ESI_ACTIVE,
-	    .BitRateSwitch = FDCAN_BRS_ON,
-	    .FDFormat = FDCAN_FD_CAN,
-	    .TxEventFifoControl = FDCAN_STORE_TX_EVENTS,
-	    .MessageMarker = 0
+        .Identifier          = 0x222,
+        .IdType              = FDCAN_STANDARD_ID,
+        .TxFrameType         = FDCAN_DATA_FRAME,
+        .DataLength          = FDCAN_DLC_BYTES_64,
+        .ErrorStateIndicator = FDCAN_ESI_ACTIVE,
+        .BitRateSwitch       = FDCAN_BRS_ON,
+        .FDFormat            = FDCAN_FD_CAN,
+        .TxEventFifoControl  = FDCAN_STORE_TX_EVENTS,
+        .MessageMarker       = 0
     };
 
     uint8_t txBuf[64];
@@ -483,13 +484,11 @@ void StartSendMessage(void *argument)
             memset(txBuf, 0, sizeof(txBuf));
             memcpy(txBuf, &msg, sizeof(msg));
 
-            if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &txHeader, txBuf) != HAL_OK)
-            {
-                debug_print("CAN Tx Error\r\n");
-            }
+            // attempt to enqueue onto the TX FIFO
+            HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &txHeader, txBuf);
         }
-        // small yield so lower-priority tasks still run
-        osDelay(10);
+
+        osDelay(100);
     }
 }
 
@@ -503,7 +502,6 @@ void StartSendMessage(void *argument)
 void StartDeployment(void *argument)
 {
   /* USER CODE BEGIN StartDeployment */
-	MX_USB_Device_Init();
 
 	FlightPhase phase = Startup;
 	uint32_t land_time = 0;
@@ -677,7 +675,7 @@ void StartDeployment(void *argument)
         data.kf_vel = kf.est[1];
         data.kf_accel = kf.est[2];
 
-        log_add(&data);
+//        log_add(&data);
 
         // throttle amount of data being sent
         if (send_now) {
