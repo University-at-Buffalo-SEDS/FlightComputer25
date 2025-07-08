@@ -201,10 +201,14 @@ int main(void)
   HAL_Delay(4000);
   HAL_GPIO_WritePin(Backlight_GPIO_Port, Backlight_Pin, GPIO_PIN_SET);
 
+  HAL_Delay(15000);
+  channel_fire(SEPARATION_INDEX);
+
   bmi088_init(&imu, &hspi1, ACCEL_nCS_GPIO_Port, GYRO_nCS_GPIO_Port, ACCEL_nCS_Pin, GYRO_nCS_Pin);
   bmp_init(&baro, &hspi1, BARO_nCS_GPIO_Port, BARO_nCS_Pin);
   KalmanFilter_init(&kf, KALMAN_PERIOD, ALTITUDE_SIGMA, ACCELERATION_SIGMA, MODEL_SIGMA);
   HAL_FDCAN_Start(&hfdcan2);
+
 //  Flash_Setup(&hspi1, FLASH_nCS_GPIO_Port, FLASH_nCS_Pin);
 
 //  HAL_Delay(2000);
